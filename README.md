@@ -1,4 +1,5 @@
 A Chrome Extension developed with [Plasmo extension](https://docs.plasmo.com/).
+
 [Google Webstore](https://chromewebstore.google.com/detail/fulltext-bookmark/nemjnpfmngeipdjjjecgjgeognbcmkbl)
 ## Update
 ⌨️ Add backup feature for exporting your data into a csv file. And you can also import it back to the extension to restore.
