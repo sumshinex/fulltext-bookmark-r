@@ -1,5 +1,17 @@
 import download from "downloadjs"
 
+const safeTrim = (v: any): string => {
+  if (v === undefined || v === null) return '';
+  if (typeof (v as any).trim === 'function') {
+    try {
+      return (v as any).trim();
+    } catch {
+      // fall through to string conversion
+    }
+  }
+  return typeof v === 'string' ? v.trim() : String(v).trim();
+}
+
 /**
  * Converts JSON data to CSV format
  * @param jsonData The JSON data to convert
@@ -182,17 +194,17 @@ export const csvToJSON = (csvData) => {
       if (values.length < requiredHeaders.length) continue; // Skip invalid lines
 
       // Extract URL and skip if empty
-      const url = values[urlIndex].trim();
+      const url = safeTrim(values[urlIndex]);
       if (!url) continue;
 
       // Create data object
       const pageData = {
         url: url,
-        title: values[titleIndex].trim(),
+        title: safeTrim(values[titleIndex]),
         date: parseDate(values[dateIndex]),
         isBookmarked: values[bookmarkedIndex].toLowerCase().includes('yes'),
         pageId: generateUUID(), // Always generate a new UUID
-        content: contentIndex >= 0 ? values[contentIndex].trim() : ''
+        content: contentIndex >= 0 ? safeTrim(values[contentIndex]) : ''
       };
 
       result.push(pageData);
