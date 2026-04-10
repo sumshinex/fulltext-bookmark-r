@@ -1,3 +1,4 @@
+import { memo, useCallback } from "react"
 import Toggle from "react-toggle"
 import { SettingBlock } from "../SettingBlock"
 import { SettingItem } from "../SettingItem"
@@ -15,15 +16,14 @@ interface StorageSettingsProps {
   handlePageExpireTimeSubmit: () => void
   handleForbiddenURLsChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void
   handleBlurForbiddenURLs: () => void
-  dispatch: any
-  toggleStoreEveryPage: () => void
-  toggleBookmarkAdaption: () => void
+  onToggleStoreEveryPage: () => void
+  onToggleBookmarkAdaption: () => void
 }
 
 /**
  * Storage settings component for index and storage management
  */
-export const StorageSettings = ({
+export const StorageSettings = memo(({
   storeEveryPage,
   bookmarkAdaption,
   tempPageExpireTimeInDays,
@@ -34,17 +34,20 @@ export const StorageSettings = ({
   handlePageExpireTimeSubmit,
   handleForbiddenURLsChange,
   handleBlurForbiddenURLs,
-  dispatch,
-  toggleStoreEveryPage,
-  toggleBookmarkAdaption
+  onToggleStoreEveryPage,
+  onToggleBookmarkAdaption
 }: StorageSettingsProps) => {
-  
-  const handleClearAllData = async () => {
+  const handleRefreshStoreSize = useCallback(async () => {
+    const size = await showEstimatedQuota()
+    setStoreSize(size)
+  }, [setStoreSize])
+
+  const handleClearAllData = useCallback(async () => {
     await clearAllData()
     alert(chrome.i18n.getMessage("settingPageSettingIndexSizeClearAlert"))
     const newSize = await showEstimatedQuota()
     setStoreSize(newSize)
-  }
+  }, [setStoreSize])
 
   return (
     <SettingBlock title={chrome.i18n.getMessage("settingPageSettingIndex")}>
@@ -54,10 +57,7 @@ export const StorageSettings = ({
       >
         <button
           className="text-blue-500 mr-8 text-lg"
-          onClick={async () => {
-            const size = await showEstimatedQuota()
-            setStoreSize(size)
-          }}
+          onClick={handleRefreshStoreSize}
         >
           {chrome.i18n.getMessage("settingPageSettingIndexSizeButton")}
         </button>
@@ -79,19 +79,13 @@ export const StorageSettings = ({
         description={chrome.i18n.getMessage("settingPageSettingIndexEveryDesp")}
         notes={chrome.i18n.getMessage("settingPageSettingIndexEveryNote")}
       >
-        <Toggle
-          defaultChecked={storeEveryPage}
-          onChange={() => dispatch(toggleStoreEveryPage())}
-        />
+        <Toggle checked={storeEveryPage} onChange={onToggleStoreEveryPage} />
       </SettingItem>
       <SettingItem
         description={chrome.i18n.getMessage("settingPageSettingIndexBookDesp")}
         notes={chrome.i18n.getMessage("settingPageSettingIndexBookNote")}
       >
-        <Toggle
-          defaultChecked={bookmarkAdaption}
-          onChange={() => dispatch(toggleBookmarkAdaption())}
-        />
+        <Toggle checked={bookmarkAdaption} onChange={onToggleBookmarkAdaption} />
       </SettingItem>
       <p></p>
       <SettingItemCol
@@ -122,4 +116,4 @@ export const StorageSettings = ({
       </SettingItemCol>
     </SettingBlock>
   )
-}
+})

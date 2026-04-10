@@ -14,183 +14,142 @@ export const config: PlasmoContentScript = {
   all_frames: false
 }
 
-// console.log("weibo content script")
-
 const storageKey = "fulltextbookmark"
+const processedCards = new WeakSet<Element>()
+const tickedSet = new Set<string>()
+const tickedQueue: string[] = []
+const feedCardSelector = "div[class^='vue-recycle-scroller__item-view']"
 let weiboSupport = "true"
+let feedObserver: MutationObserver | null = null
 
-let tickedList = []
-// get user options to decide whether to show search result
 chrome.storage.local.get([`persist:${storageKey}`], (items) => {
   if (items[`persist:${storageKey}`]) {
-    // console.log("persist result",items[`persist:${storageKey}`])
     const rootParsed = JSON.parse(items[`persist:${storageKey}`])
-    // console.log(rootParsed)
     weiboSupport = rootParsed.weiboSupport
-  } else {
-    // console.log("no persist result")
   }
-  // TODO:judge if show save btn in weibo page
-  if(weiboSupport === "false") {
+
+  if (weiboSupport === "false") {
     return
   }
+
+  scheduleAddButtons()
   if (document.readyState === "complete") {
-    // console.log("1")
-    addBtn().then(() => {
-      window.onscroll = function () {
-        // console.log("scroll")
-        debouncAddBtn()
-      }
-    })
+    observeFeedCards()
   } else {
-    document.onreadystatechange = async function () {
-      if (document.readyState == "complete") {
-        // console.log("2")
-        addBtn().then(() => {
-          window.onscroll = function () {
-            // console.log("scroll")
-            debouncAddBtn()
-          }
-        })
-      }
-    }
+    window.addEventListener("load", observeFeedCards, { once: true })
   }
 })
 
-const debouncAddBtn = debounce(
-  async () => {
-    // console.log("add btn")
-    await addBtn()
+const scheduleAddButtons = debounce(
+  () => {
+    addButtonsToCards(document.querySelectorAll(feedCardSelector))
   },
   300,
   { leading: true, trailing: true }
 )
 
-async function addBtn() {
-  const feedCard = await findFeedCard()
-  // console.log(feedCard)
-  if (feedCard.length > 0) {
-    feedCard.forEach((e) => {
-      // if othe card already has the btn, return
-      if (e.querySelector("#fulltext_bookmark_search-btn")) {
-        // console.log("aaa")
-        // return
-        e.querySelector("#fulltext_bookmark_search-btn").remove()
-      }
-      // get url
-      const urlA = e.querySelector("a[class^='head-info_time']")
-      // console.log(urlA)
-
-      // get content
-      const contentDivs = e.querySelectorAll("div[class^='detail_wbtext']")
-      let content = ""
-      contentDivs.forEach((e) => {
-        content = content + e.innerText + "\n"
-      })
-      // console.log(contentDiv.innerText,contentDiv.innerHTML)
-
-      // get title
-
-      const headname = e.querySelector("a[class*='head_name']")
-      const title = "@" + headname.innerText + "://" + content
-
-      // get btn insert position
-      let headInfo = e.querySelector("div[class*='toolbar_main']")
-      if (!headInfo) {
-        headInfo = e.querySelector("div[class*='head-info_info']")
-      }
-
-      // insert btn
-      try {
-        headInfo.appendChild(makeBtn(urlA.href, content, title))
-      } catch {}
-    })
+function observeFeedCards() {
+  if (!document.body || feedObserver) {
+    return
   }
+
+  feedObserver = new MutationObserver((mutations) => {
+    const addedCards = [] as Element[]
+    mutations.forEach((mutation) => {
+      mutation.addedNodes.forEach((node) => {
+        if (!(node instanceof Element)) {
+          return
+        }
+
+        if (node.matches(feedCardSelector)) {
+          addedCards.push(node)
+        }
+
+        node.querySelectorAll?.(feedCardSelector).forEach((card) => {
+          addedCards.push(card)
+        })
+      })
+    })
+
+    if (addedCards.length > 0) {
+      addButtonsToCards(addedCards)
+    }
+  })
+
+  feedObserver.observe(document.body, {
+    childList: true,
+    subtree: true
+  })
 }
 
-async function findFeedCard() {
-    const a = await waitForElements("div[class^='Feed_body']")
-    const feedCard = document.querySelectorAll(
-      "div[class^='vue-recycle-scroller__item-view']"
+function addButtonsToCards(cards: Iterable<Element>) {
+  for (const card of cards) {
+    if (processedCards.has(card) || card.querySelector("#fulltext_bookmark_search-btn")) {
+      continue
+    }
+
+    const urlA = card.querySelector("a[class^='head-info_time']") as HTMLAnchorElement | null
+    const headName = card.querySelector("a[class*='head_name']")
+    if (!urlA || !headName) {
+      continue
+    }
+
+    const headInfo =
+      card.querySelector("div[class*='toolbar_main']") ||
+      card.querySelector("div[class*='head-info_info']")
+    if (!headInfo) {
+      continue
+    }
+
+    const content = Array.from(
+      card.querySelectorAll("div[class^='detail_wbtext']")
     )
-    return feedCard
+      .map((item) => item.textContent || "")
+      .join("\n")
+      .trim()
+
+    const title = `@${headName.textContent || ""}://${content}`
+    headInfo.appendChild(makeBtn(urlA.href, content, title))
+    processedCards.add(card)
+  }
 }
 
 function makeBtn(url: string, content: string, title: string) {
   const btn = document.createElement("btn")
-  // btn.innerText = 'bookmark';
-  // const ic = document.createElement("span")
-  if(tickedList.includes(url)) {
+  if (tickedSet.has(url)) {
     btn.style.backgroundImage = `url(${tickPNG})`
   } else {
     btn.style.backgroundImage = `url(${icon512})`
   }
-  
-  // btn.style.width = '10px';
-  // btn.style.height = '10px';
+
   btn.style.backgroundSize = "contain"
   btn.style.backgroundRepeat = "no-repeat"
   btn.style.backgroundPosition = "center"
-  // btn.appendChild(ic);
   btn.id = "fulltext_bookmark_search-btn"
-  // make btn round
   btn.style.borderRadius = "100%"
   btn.style.width = "20px"
   btn.style.height = "20px"
-  // btn.style.backgroundColor = '#fff';
-  // btn.style.paddingTop = "5px"
-  // btn.style.background="transparent";
   btn.style.border = "none"
   btn.style.color = "#939393"
   btn.style.fontSize = "0.5rem"
-  // btn.style.marginLeft="10%";
   btn.onmouseover = function () {
     btn.style.backgroundColor = "#fff2e5"
   }
   btn.onmouseout = function () {
     btn.style.backgroundColor = "#fff"
   }
-  if(!tickedList.includes(url)) {
+  if (!tickedSet.has(url)) {
     btn.onclick = async function () {
       btn.style.backgroundImage = `url(${loading})`
       await archive(url, content, title)
       btn.style.backgroundImage = `url(${tickPNG})`
     }
   }
-  
 
   return btn
 }
 
-const waitForElements = (selector) => {
-  return new Promise((resolve,reject) => {
-    if (document.querySelector(selector)) {
-      return resolve(document.querySelector(selector))
-    }
-    
-
-    const observer = new MutationObserver((mutations) => {
-      if (document.querySelector(selector)) {
-        resolve(document.querySelector(selector))
-        observer.disconnect()
-      }
-    })
-
-    observer.observe(document.body, {
-      childList: true,
-      subtree: true
-    })
-    // const gg = setTimeout(() => {
-    //   observer.disconnect()
-    //   console.log("%%%%%%%%%%%%%%")
-    //   clearTimeout(gg)
-    //   rejects()
-    // },10000)
-  })
-}
-
 async function archive(url: string, content: string, title: string) {
-  // console.log("archive", url, content, title)
   const data = {
     url: url,
     content: content,
@@ -198,17 +157,15 @@ async function archive(url: string, content: string, title: string) {
     date: Date.now(),
     isBookmarked: true
   }
-  if(tickedList.length>100) {
-    tickedList.splice(0,50)
+  if (tickedQueue.length > 100) {
+    const removedUrls = tickedQueue.splice(0, 50)
+    removedUrls.forEach((removedUrl) => tickedSet.delete(removedUrl))
   }
-  tickedList.push(data.url)
+  tickedQueue.push(data.url)
+  tickedSet.add(data.url)
   return chrome.runtime.sendMessage({
     command: "store",
     data: data,
     pageId: uuidv4()
   })
-  // chrome.runtime.sendMessage({
-  //   type: 'archive',
-  //   data
-  // })
 }

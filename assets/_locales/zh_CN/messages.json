@@ -20,7 +20,7 @@
     "description": "Search button."
   },
   "gptFirst": {
-    "message": "请在「设置」中提供你自己的openai api key以使用Ask GPT功能",
+    "message": "请先在「设置」中填写 API Base URL、API Key、常规模型和 Embedding 模型。",
     "description": "Search button."
   },
   "settingPageGPTURLDesp": {
@@ -54,6 +54,10 @@
   "popupAskAnswerCopy": {
     "message": "复制",
     "description": "Search button."
+  },
+  "popupAskRequestFailed": {
+    "message": "请求失败，请检查网络、Base URL 或模型配置。",
+    "description": "Ask GPT 请求失败提示"
   },
   "settingPageGPTTestFail": {
     "message": "测试失败,请检查你的设置",
@@ -124,8 +128,176 @@
     "description": "Search button."
   },
   "settingPageSettingSearchPageNote": {
-    "message": "支持 baidu/bing/google",
+    "message": "支持 Google/Bing/Baidu/DuckDuckGo/Yandex，也支持自定义搜索引擎规则。",
     "description": "Search button."
+  },
+  "settingPageSettingSearchCustomEngineDesp": {
+    "message": "自定义搜索引擎规则",
+    "description": "自定义搜索引擎规则描述"
+  },
+  "settingPageSettingSearchCustomEngineNote": {
+    "message": "填写 JSON 数组。每项至少包含 urlPattern，并提供 containerId 或 containerSelector，以及 queryParam 或 queryInputSelector；可选 insertPosition（prepend/append/beforebegin/afterbegin/beforeend/afterend）。",
+    "description": "自定义搜索引擎规则注释"
+  },
+  "settingPageSettingSearchCustomEngineExample": {
+    "message": "示例：[{\n  \"name\": \"DuckDuckGo\",\n  \"urlPattern\": \"^https://duckduckgo\\\\.com/.*\",\n  \"containerSelector\": \"#links\",\n  \"queryParam\": \"q\",\n  \"insertPosition\": \"prepend\"\n}]",
+    "description": "自定义搜索引擎规则示例"
+  },
+  "settingPageSettingSearchGenerateDesp": {
+    "message": "AI 生成搜索引擎规则",
+    "description": "AI 生成自定义搜索引擎规则描述"
+  },
+  "settingPageSettingSearchGenerateNote": {
+    "message": "先在当前标签页打开目标搜索页，再让 AI 根据页面 URL 和 DOM 线索推断规则。",
+    "description": "AI 生成自定义搜索引擎规则说明"
+  },
+  "settingPageSettingSearchGenerateBtn": {
+    "message": "生成规则",
+    "description": "AI 生成自定义搜索引擎规则按钮"
+  },
+  "settingPageSettingSearchGenerateLoading": {
+    "message": "生成中...",
+    "description": "AI 生成自定义搜索引擎规则加载文案"
+  },
+  "settingPageSettingSearchGenerateSuccess": {
+    "message": "已生成规则建议。",
+    "description": "AI 生成自定义搜索引擎规则成功提示"
+  },
+  "settingPageSettingSearchGenerateAppendBtn": {
+    "message": "追加到自定义规则",
+    "description": "追加生成规则按钮"
+  },
+  "settingPageSettingSearchGenerateReplaceBtn": {
+    "message": "用此规则替换当前规则",
+    "description": "用生成规则替换当前自定义规则按钮"
+  },
+  "settingPageSettingSearchGenerateCopyBtn": {
+    "message": "复制 JSON",
+    "description": "复制生成规则 JSON 按钮"
+  },
+  "settingPageSettingSearchGenerateTestBtn": {
+    "message": "在当前页面测试",
+    "description": "在当前页面测试生成规则按钮"
+  },
+  "settingPageSettingSearchGenerateAppendSuccess": {
+    "message": "已将生成规则追加到自定义规则中。",
+    "description": "追加生成规则成功提示"
+  },
+  "settingPageSettingSearchGenerateReplaceSuccess": {
+    "message": "已用生成规则替换当前自定义规则。",
+    "description": "替换自定义规则成功提示"
+  },
+  "settingPageSettingSearchGenerateCopySuccess": {
+    "message": "已复制生成规则 JSON。",
+    "description": "复制生成规则成功提示"
+  },
+  "settingPageSettingSearchGenerateTestSuccess": {
+    "message": "规则已命中当前页面。",
+    "description": "规则测试成功提示"
+  },
+  "settingPageSettingSearchGenerateAppendFail": {
+    "message": "追加生成规则失败。",
+    "description": "追加生成规则失败提示"
+  },
+  "settingPageSettingSearchGenerateReplaceFail": {
+    "message": "用生成规则替换当前自定义规则失败。",
+    "description": "替换自定义规则失败提示"
+  },
+  "settingPageSettingSearchGenerateTestFail": {
+    "message": "规则未完整命中当前页面。",
+    "description": "规则测试失败提示"
+  },
+  "settingPageSettingSearchGenerateAppendFixError": {
+    "message": "请先修复当前自定义规则 JSON，再执行追加。",
+    "description": "当前规则 JSON 无效，无法追加"
+  },
+  "settingPageSettingSearchGenerateTabError": {
+    "message": "无法读取当前标签页。",
+    "description": "当前标签页不可用提示"
+  },
+  "settingPageSettingSearchGenerateContextError": {
+    "message": "无法从当前标签页收集足够的页面上下文。",
+    "description": "收集页面上下文失败提示"
+  },
+  "settingPageSettingSearchGenerateTestUnavailable": {
+    "message": "无法在当前标签页测试该规则。",
+    "description": "规则测试不可用提示"
+  },
+  "settingPageSettingSearchGenerateTestStatusUrl": {
+    "message": "URL 是否命中",
+    "description": "规则测试 URL 命中状态标签"
+  },
+  "settingPageSettingSearchGenerateTestStatusContainer": {
+    "message": "容器是否命中",
+    "description": "规则测试容器命中状态标签"
+  },
+  "settingPageSettingSearchGenerateTestStatusQuery": {
+    "message": "查询词是否命中",
+    "description": "规则测试查询词命中状态标签"
+  },
+  "settingPageSettingSearchGenerateTestMatchedContainer": {
+    "message": "当前容器",
+    "description": "规则测试当前容器标签"
+  },
+  "settingPageSettingSearchGenerateTestMatchedQuery": {
+    "message": "当前查询词",
+    "description": "规则测试当前查询词标签"
+  },
+  "settingPageSettingSearchGenerateTestIssuesTitle": {
+    "message": "问题",
+    "description": "规则测试问题标题"
+  },
+  "settingPageSettingSearchGenerateTestSuggestionsTitle": {
+    "message": "建议修复项",
+    "description": "规则测试建议标题"
+  },
+  "settingPageSettingSearchGenerateDiagInvalidRegexIssue": {
+    "message": "urlPattern 不是合法的正则表达式。",
+    "description": "无效正则问题提示"
+  },
+  "settingPageSettingSearchGenerateDiagInvalidRegexSuggestion": {
+    "message": "请修正 urlPattern，确保它可以被 new RegExp(...) 正常解析。",
+    "description": "无效正则修复建议"
+  },
+  "settingPageSettingSearchGenerateDiagUrlIssue": {
+    "message": "urlPattern 没有命中当前页面 URL。",
+    "description": "URL 未命中问题提示"
+  },
+  "settingPageSettingSearchGenerateDiagUrlSuggestion": {
+    "message": "请收窄或放宽 urlPattern 以匹配当前页面，例如：$1",
+    "description": "URL 未命中修复建议"
+  },
+  "settingPageSettingSearchGenerateDiagContainerIssue": {
+    "message": "当前页面中没有找到结果容器。",
+    "description": "容器未命中问题提示"
+  },
+  "settingPageSettingSearchGenerateDiagContainerSelectorSuggestion": {
+    "message": "可尝试改用 containerSelector：$1",
+    "description": "容器 selector 修复建议"
+  },
+  "settingPageSettingSearchGenerateDiagContainerIdSuggestion": {
+    "message": "可尝试改用 containerId：$1",
+    "description": "容器 id 修复建议"
+  },
+  "settingPageSettingSearchGenerateDiagContainerFallbackSuggestion": {
+    "message": "请检查搜索结果容器选择器是否仍然匹配当前 DOM。",
+    "description": "容器兜底修复建议"
+  },
+  "settingPageSettingSearchGenerateDiagQueryIssue": {
+    "message": "当前页面中无法提取查询词。",
+    "description": "查询词未命中问题提示"
+  },
+  "settingPageSettingSearchGenerateDiagQueryParamSuggestion": {
+    "message": "可尝试改用 queryParam：$1",
+    "description": "queryParam 修复建议"
+  },
+  "settingPageSettingSearchGenerateDiagQuerySelectorSuggestion": {
+    "message": "可尝试改用 queryInputSelector：$1",
+    "description": "queryInputSelector 修复建议"
+  },
+  "settingPageSettingSearchGenerateDiagQueryFallbackSuggestion": {
+    "message": "请检查查询词是来自 URL 参数还是页面上的搜索输入框。",
+    "description": "查询词兜底修复建议"
   },
   "settingPageSettingWeiboDesp": {
     "message": "在微博页面显示保存按钮",
@@ -329,11 +501,11 @@
     "description": "GPT设置注释"
   },
   "settingPageSettingGPTUrlDesp": {
-    "message": "OpenAI API地址",
+    "message": "API Base URL",
     "description": "GPT URL设置描述"
   },
   "settingPageSettingGPTUrlNote": {
-    "message": "OpenAI API请求的URL地址。",
+    "message": "填写兼容 OpenAI API 的 Base URL，例如 https://api.openai.com/v1 。",
     "description": "GPT URL设置注释"
   },
   "settingPageSettingGPTKeyDesp": {
@@ -343,6 +515,66 @@
   "settingPageSettingGPTKeyNote": {
     "message": "用于身份验证的个人OpenAI API密钥。",
     "description": "GPT密钥设置注释"
+  },
+  "settingPageSettingGPTModelsFetchDesp": {
+    "message": "获取模型列表",
+    "description": "获取模型列表描述"
+  },
+  "settingPageSettingGPTModelsFetchNote": {
+    "message": "使用当前 Base URL 和 API 密钥获取可用模型列表。",
+    "description": "获取模型列表注释"
+  },
+  "settingPageSettingGPTModelsFetchBtn": {
+    "message": "获取模型",
+    "description": "获取模型按钮文本"
+  },
+  "settingPageSettingGPTModelsFetchLoading": {
+    "message": "获取中...",
+    "description": "获取模型加载文本"
+  },
+  "settingPageSettingGPTChatModelDesp": {
+    "message": "常规模型",
+    "description": "聊天模型设置描述"
+  },
+  "settingPageSettingGPTEmbeddingModelDesp": {
+    "message": "Embedding 模型",
+    "description": "Embedding 模型设置描述"
+  },
+  "settingPageSettingGPTPromptTemplateDesp": {
+    "message": "自定义提示词模板",
+    "description": "提示词模板设置描述"
+  },
+  "settingPageSettingGPTPromptTemplateNote": {
+    "message": "用于 Ask GPT 的提示词模板，可自定义回答风格和引用格式。",
+    "description": "提示词模板设置注释"
+  },
+  "settingPageSettingGPTMissingConfig": {
+    "message": "请先填写 API Base URL、API Key 和模型配置。",
+    "description": "缺少 GPT 配置时的提示"
+  },
+  "settingPageSettingGPTModelsFetchSuccess": {
+    "message": "模型获取成功",
+    "description": "模型获取成功提示"
+  },
+  "settingPageSettingGPTModelsFetchEmpty": {
+    "message": "接口已连通，但未返回模型列表。",
+    "description": "模型获取为空提示"
+  },
+  "settingPageSettingGPTCurrentModelDesp": {
+    "message": "当前模型配置",
+    "description": "当前模型配置描述"
+  },
+  "settingPageSettingGPTCurrentModelHint": {
+    "message": "当前保存的模型配置如下，可用于确认 Ask GPT 实际会调用哪些模型。",
+    "description": "当前模型配置提示"
+  },
+  "settingPageSettingGPTCurrentChatModelNote": {
+    "message": "常规模型",
+    "description": "当前聊天模型注释"
+  },
+  "settingPageSettingGPTCurrentEmbeddingModelNote": {
+    "message": "Embedding 模型",
+    "description": "当前 embedding 模型注释"
   },
   "settingPageSettingGPTTestDesp": {
     "message": "测试API连接",

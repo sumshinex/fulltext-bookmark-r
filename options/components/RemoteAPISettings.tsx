@@ -1,3 +1,4 @@
+import { memo } from "react"
 import Toggle from "react-toggle"
 import { SettingBlock } from "../SettingBlock"
 import { SettingItem } from "../SettingItem"
@@ -10,24 +11,22 @@ interface RemoteAPISettingsProps {
   tempRemoteStoreURL: string
   handleRemoteStoreURLChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void
   handleBlurRemoteStoreURL: () => void
-  dispatch: any
-  toggleRemoteStore: () => void
-  toggleRemoteStoreEveryPage: () => void
+  onToggleRemoteStore: () => void
+  onToggleRemoteStoreEveryPage: () => void
 }
 
 /**
  * Remote API settings component
  */
-export const RemoteAPISettings = ({
+export const RemoteAPISettings = memo(({
   remoteStore,
   remoteStoreEveryPage,
   remoteStoreURL,
   tempRemoteStoreURL,
   handleRemoteStoreURLChange,
   handleBlurRemoteStoreURL,
-  dispatch,
-  toggleRemoteStore,
-  toggleRemoteStoreEveryPage
+  onToggleRemoteStore,
+  onToggleRemoteStoreEveryPage
 }: RemoteAPISettingsProps) => {
   return (
     <SettingBlock title={chrome.i18n.getMessage("settingPageRemoteTitle")}>
@@ -35,22 +34,16 @@ export const RemoteAPISettings = ({
         description={chrome.i18n.getMessage("settingPageRemoteSendDesp")}
         notes={chrome.i18n.getMessage("settingPageRemoteSendnote")}
       >
-        <Toggle
-          defaultChecked={remoteStore}
-          onChange={() => dispatch(toggleRemoteStore())}
-        />
+        <Toggle checked={remoteStore} onChange={onToggleRemoteStore} />
       </SettingItem>
-      
+
       <SettingItem
         description={chrome.i18n.getMessage("settingPageRemoteSendEveryDesp")}
         notes={chrome.i18n.getMessage("settingPageRemoteSendEveryNote")}
       >
-        <Toggle
-          defaultChecked={remoteStoreEveryPage}
-          onChange={() => dispatch(toggleRemoteStoreEveryPage())}
-        />
+        <Toggle checked={remoteStoreEveryPage} onChange={onToggleRemoteStoreEveryPage} />
       </SettingItem>
-      
+
       <SettingItemCol
         description={chrome.i18n.getMessage("settingPageRemoteAPIDesp")}
         notes={chrome.i18n.getMessage("settingPageRemoteAPINote")}
@@ -65,4 +58,4 @@ export const RemoteAPISettings = ({
       </SettingItemCol>
     </SettingBlock>
   )
-}
+})

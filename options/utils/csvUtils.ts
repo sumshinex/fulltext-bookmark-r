@@ -19,8 +19,7 @@ const safeTrim = (v: any): string => {
  */
 export const jsonToCSV = (jsonData) => {
   try {
-    console.log('Export data structure:', jsonData);
-    
+
     // Find the pages table in the Dexie export format
     let pages = [];
     let contents = [];
@@ -31,14 +30,12 @@ export const jsonToCSV = (jsonData) => {
       const pagesTable = jsonData.data.data.find(table => table.tableName === 'pages');
       if (pagesTable && Array.isArray(pagesTable.rows)) {
         pages = pagesTable.rows;
-        console.log('Found pages in Dexie export format:', pages.length);
       }
       
       // Find the contents table
       const contentsTable = jsonData.data.data.find(table => table.tableName === 'contents');
       if (contentsTable && Array.isArray(contentsTable.rows)) {
         contents = contentsTable.rows;
-        console.log('Found contents in Dexie export format:', contents.length);
       }
     }
     
@@ -47,13 +44,11 @@ export const jsonToCSV = (jsonData) => {
       const pagesTable = jsonData.data.tables.find(table => table.name === 'pages');
       if (pagesTable && Array.isArray(pagesTable.rows)) {
         pages = pagesTable.rows;
-        console.log('Found pages in tables array:', pages.length);
       }
       
       const contentsTable = jsonData.data.tables.find(table => table.name === 'contents');
       if (contentsTable && Array.isArray(contentsTable.rows)) {
         contents = contentsTable.rows;
-        console.log('Found contents in tables array:', contents.length);
       }
     }
     
@@ -112,7 +107,6 @@ export const jsonToCSV = (jsonData) => {
       throw new Error('No valid page data found to export');
     }
     
-    console.log(`Successfully converted ${rowCount} pages to CSV`);
     return csvContent;
   } catch (error) {
     console.error('Error converting JSON to CSV:', error);

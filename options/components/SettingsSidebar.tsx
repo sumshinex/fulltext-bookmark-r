@@ -1,8 +1,7 @@
-import { useState, useEffect } from "react"
+import { useEffect, useState } from "react"
 import { NavButton } from "../NavButton"
 
 interface SettingsSidebarProps {
-  navPage: number
   onNavChange: (pageNum: number) => void
   onCollapse?: (collapsed: boolean) => void
 }
@@ -11,49 +10,39 @@ interface SettingsSidebarProps {
  * Sidebar navigation component for settings
  * Includes collapsible functionality for responsive design
  */
-export const SettingsSidebar = ({ navPage, onNavChange, onCollapse }: SettingsSidebarProps) => {
+export const SettingsSidebar = ({ onNavChange, onCollapse }: SettingsSidebarProps) => {
   const [isCollapsed, setIsCollapsed] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
 
-  // Handle responsive behavior
   useEffect(() => {
     const handleResize = () => {
-      if (window.innerWidth < 1024) { // lg breakpoint
+      if (window.innerWidth < 1024) {
         setIsMobile(true)
         setIsCollapsed(true)
       } else {
         setIsMobile(false)
-        // Don't automatically uncollapse on desktop - let user control it
-        // setIsCollapsed(false)
       }
     }
 
-    // Initial check
     handleResize()
+    window.addEventListener("resize", handleResize)
 
-    // Add event listener
-    window.addEventListener('resize', handleResize)
-    
-    // Cleanup
-    return () => window.removeEventListener('resize', handleResize)
+    return () => window.removeEventListener("resize", handleResize)
   }, [])
 
-  // Notify parent component when collapse state changes
   useEffect(() => {
-    if (onCollapse) {
-      onCollapse(isCollapsed)
-    }
+    onCollapse?.(isCollapsed)
   }, [isCollapsed, onCollapse])
 
   const toggleCollapse = () => {
-    setIsCollapsed(!isCollapsed)
+    setIsCollapsed((current) => !current)
   }
 
   return (
     <>
       {/* Toggle button - visible only when collapsed */}
-      <button 
-        className={`fixed top-4 left-4 z-30 p-2 rounded-md bg-white shadow-md ${isCollapsed ? 'block' : 'hidden'}`}
+      <button
+        className={`fixed top-4 left-4 z-30 p-2 rounded-md bg-white shadow-md ${isCollapsed ? "block" : "hidden"}`}
         onClick={toggleCollapse}
         aria-label="Toggle sidebar"
       >
@@ -73,13 +62,13 @@ export const SettingsSidebar = ({ navPage, onNavChange, onCollapse }: SettingsSi
         </svg>
       </button>
       {/* Sidebar */}
-      <div 
+      <div
         className={`fixed z-20 inset-0 right-auto w-[16rem] py-10 px-6 overflow-y-auto bg-white transition-transform duration-300 ease-in-out ${isCollapsed ? '-translate-x-full' : 'translate-x-0'} ${isMobile ? 'shadow-lg' : ''}`}
       >
         <div className="lg:leading-6 relative">
           {/* Close button positioned at top right of sidebar */}
           {!isCollapsed && (
-            <button 
+            <button
               className="absolute top-0 right-0 p-2 rounded-md hover:bg-gray-100"
               onClick={toggleCollapse}
               aria-label="Close sidebar"
@@ -124,7 +113,7 @@ export const SettingsSidebar = ({ navPage, onNavChange, onCollapse }: SettingsSi
 
       {/* Overlay for mobile when sidebar is open */}
       {!isCollapsed && isMobile && (
-        <div 
+        <div
           className="fixed inset-0 bg-black bg-opacity-50 z-10 lg:hidden"
           onClick={toggleCollapse}
         />

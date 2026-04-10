@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react"
-import { useSelector, useDispatch } from "react-redux"
+import { useCallback, useEffect, useMemo, useState } from "react"
+import { useDispatch } from "react-redux"
 import { Feature } from "./Feature"
 import { Donate } from "./Donate"
 import { SettingsSidebar } from "./components/SettingsSidebar"
@@ -11,32 +11,36 @@ import { GPTSettings } from "./components/GPTSettings"
 import { useSettingsState } from "./hooks/useSettingsState"
 import { showEstimatedQuota } from "./utils/storageUtils"
 
-/**
- * Main settings view component
- */
 export const SettingView = () => {
   const dispatch = useDispatch()
   const {
     searchEngineAdaption,
     weiboSupport,
     showOnlyBookmarkedResults,
-    maxResults,
     storeEveryPage,
     bookmarkAdaption,
-    pageExpireTimeInDays,
-    forbiddenURLs,
     remoteStore,
     remoteStoreURL,
     remoteStoreEveryPage,
     showAskGPT,
     GPTKey,
     GPTUrl,
+    GPTChatModel,
+    GPTEmbeddingModel,
+    GPTPromptTemplate,
+    GPTAvailableModels,
     tempMaxResults,
     tempPageExpireTimeInDays,
     tempForbiddenURLs,
+    tempCustomSearchEngines,
+    customSearchEnginesError,
     tempRemoteStoreURL,
     tempGPTKey,
     tempGPTUrl,
+    tempGPTChatModel,
+    applyCustomSearchEngines,
+    tempGPTEmbeddingModel,
+    tempGPTPromptTemplate,
     navPage,
     handleMaxResultsChange,
     handleMaxResultsSubmit,
@@ -44,12 +48,21 @@ export const SettingView = () => {
     handlePageExpireTimeSubmit,
     handleForbiddenURLsChange,
     handleBlurForbiddenURLs,
+    handleCustomSearchEnginesChange,
+    handleBlurCustomSearchEngines,
     handleRemoteStoreURLChange,
     handleBlurRemoteStoreURL,
     handleGPTKeyChange,
     handleGPTUrlChange,
     handleBlurGPTKey,
     handleBlurGPTUrl,
+    handleGPTChatModelChange,
+    handleBlurGPTChatModel,
+    handleGPTEmbeddingModelChange,
+    handleBlurGPTEmbeddingModel,
+    handleGPTPromptTemplateChange,
+    handleBlurGPTPromptTemplate,
+    handleGPTAvailableModelsChange,
     setNavPage,
     toggleSearchEngineAdaption,
     toggleWeiboSupport,
@@ -72,92 +85,209 @@ export const SettingView = () => {
     fetchStoreSize()
   }, [])
 
-  // Listen for sidebar collapse state changes
-  useEffect(() => {
-    const handleResize = () => {
-      setSidebarCollapsed(window.innerWidth < 1024)
-    }
-
-    window.addEventListener('resize', handleResize)
-    return () => window.removeEventListener('resize', handleResize)
+  const handleSidebarCollapse = useCallback((collapsed: boolean) => {
+    setSidebarCollapsed(collapsed)
   }, [])
 
-  // Handle sidebar collapse state changes from the sidebar component
-  const handleSidebarCollapse = (collapsed: boolean) => {
-    setSidebarCollapsed(collapsed)
-  }
+  const handleToggleSearchEngineAdaption = useCallback(() => {
+    dispatch(toggleSearchEngineAdaption())
+  }, [dispatch, toggleSearchEngineAdaption])
+
+  const handleToggleWeiboSupport = useCallback(() => {
+    dispatch(toggleWeiboSupport())
+  }, [dispatch, toggleWeiboSupport])
+
+  const handleToggleShowOnlyBookmarkedResults = useCallback(() => {
+    dispatch(toggleShowOnlyBookmarkedResults())
+  }, [dispatch, toggleShowOnlyBookmarkedResults])
+
+  const handleToggleStoreEveryPage = useCallback(() => {
+    dispatch(toggleStoreEveryPage())
+  }, [dispatch, toggleStoreEveryPage])
+
+  const handleToggleBookmarkAdaption = useCallback(() => {
+    dispatch(toggleBookmarkAdaption())
+  }, [dispatch, toggleBookmarkAdaption])
+
+  const handleToggleRemoteStore = useCallback(() => {
+    dispatch(toggleRemoteStore())
+  }, [dispatch, toggleRemoteStore])
+
+  const handleToggleRemoteStoreEveryPage = useCallback(() => {
+    dispatch(toggleRemoteStoreEveryPage())
+  }, [dispatch, toggleRemoteStoreEveryPage])
+
+  const handleToggleShowAskGPT = useCallback(() => {
+    dispatch(toggleShowAskGPT())
+  }, [dispatch, toggleShowAskGPT])
+
+  const generalSettingsProps = useMemo(
+    () => ({
+      searchEngineAdaption,
+      weiboSupport,
+      showOnlyBookmarkedResults,
+      tempMaxResults,
+      tempCustomSearchEngines,
+      customSearchEnginesError,
+      tempGPTKey,
+      tempGPTUrl,
+      tempGPTChatModel,
+      handleMaxResultsChange,
+      handleMaxResultsSubmit,
+      handleCustomSearchEnginesChange,
+      handleBlurCustomSearchEngines,
+      applyCustomSearchEngines,
+      onToggleSearchEngineAdaption: handleToggleSearchEngineAdaption,
+      onToggleWeiboSupport: handleToggleWeiboSupport,
+      onToggleShowOnlyBookmarkedResults: handleToggleShowOnlyBookmarkedResults
+    }),
+    [
+      searchEngineAdaption,
+      weiboSupport,
+      showOnlyBookmarkedResults,
+      tempMaxResults,
+      tempCustomSearchEngines,
+      customSearchEnginesError,
+      tempGPTKey,
+      tempGPTUrl,
+      tempGPTChatModel,
+      handleMaxResultsChange,
+      handleMaxResultsSubmit,
+      handleCustomSearchEnginesChange,
+      handleBlurCustomSearchEngines,
+      applyCustomSearchEngines,
+      handleToggleSearchEngineAdaption,
+      handleToggleWeiboSupport,
+      handleToggleShowOnlyBookmarkedResults
+    ]
+  )
+
+  const storageSettingsProps = useMemo(
+    () => ({
+      storeEveryPage,
+      bookmarkAdaption,
+      tempPageExpireTimeInDays,
+      tempForbiddenURLs,
+      storeSize,
+      setStoreSize,
+      handlePageExpireTimeChange,
+      handlePageExpireTimeSubmit,
+      handleForbiddenURLsChange,
+      handleBlurForbiddenURLs,
+      onToggleStoreEveryPage: handleToggleStoreEveryPage,
+      onToggleBookmarkAdaption: handleToggleBookmarkAdaption
+    }),
+    [
+      storeEveryPage,
+      bookmarkAdaption,
+      tempPageExpireTimeInDays,
+      tempForbiddenURLs,
+      storeSize,
+      handlePageExpireTimeChange,
+      handlePageExpireTimeSubmit,
+      handleForbiddenURLsChange,
+      handleBlurForbiddenURLs,
+      handleToggleStoreEveryPage,
+      handleToggleBookmarkAdaption
+    ]
+  )
+
+  const remoteApiSettingsProps = useMemo(
+    () => ({
+      remoteStore,
+      remoteStoreEveryPage,
+      remoteStoreURL,
+      tempRemoteStoreURL,
+      handleRemoteStoreURLChange,
+      handleBlurRemoteStoreURL,
+      onToggleRemoteStore: handleToggleRemoteStore,
+      onToggleRemoteStoreEveryPage: handleToggleRemoteStoreEveryPage
+    }),
+    [
+      remoteStore,
+      remoteStoreEveryPage,
+      remoteStoreURL,
+      tempRemoteStoreURL,
+      handleRemoteStoreURLChange,
+      handleBlurRemoteStoreURL,
+      handleToggleRemoteStore,
+      handleToggleRemoteStoreEveryPage
+    ]
+  )
+
+  const gptSettingsProps = useMemo(
+    () => ({
+      showAskGPT,
+      GPTKey,
+      GPTUrl,
+      GPTChatModel,
+      GPTEmbeddingModel,
+      GPTPromptTemplate,
+      GPTAvailableModels,
+      tempGPTKey,
+      tempGPTUrl,
+      tempGPTChatModel,
+      tempGPTEmbeddingModel,
+      tempGPTPromptTemplate,
+      handleGPTKeyChange,
+      handleGPTUrlChange,
+      handleBlurGPTKey,
+      handleBlurGPTUrl,
+      handleGPTChatModelChange,
+      handleBlurGPTChatModel,
+      handleGPTEmbeddingModelChange,
+      handleBlurGPTEmbeddingModel,
+      handleGPTPromptTemplateChange,
+      handleBlurGPTPromptTemplate,
+      handleGPTAvailableModelsChange,
+      onToggleShowAskGPT: handleToggleShowAskGPT
+    }),
+    [
+      showAskGPT,
+      GPTKey,
+      GPTUrl,
+      GPTChatModel,
+      GPTEmbeddingModel,
+      GPTPromptTemplate,
+      GPTAvailableModels,
+      tempGPTKey,
+      tempGPTUrl,
+      tempGPTChatModel,
+      tempGPTEmbeddingModel,
+      tempGPTPromptTemplate,
+      handleGPTKeyChange,
+      handleGPTUrlChange,
+      handleBlurGPTKey,
+      handleBlurGPTUrl,
+      handleGPTChatModelChange,
+      handleBlurGPTChatModel,
+      handleGPTEmbeddingModelChange,
+      handleBlurGPTEmbeddingModel,
+      handleGPTPromptTemplateChange,
+      handleBlurGPTPromptTemplate,
+      handleGPTAvailableModelsChange,
+      handleToggleShowAskGPT
+    ]
+  )
 
   return (
     <div className="flex">
-      <SettingsSidebar 
-        navPage={navPage} 
-        onNavChange={setNavPage} 
+      <SettingsSidebar
+        onNavChange={setNavPage}
         onCollapse={handleSidebarCollapse}
       />
 
       <div className={`transition-all duration-300 ease-in-out max-w-3xl mx-auto px-4 sm:px-6 md:px-8 py-10 ${sidebarCollapsed ? 'lg:pl-8' : 'lg:pl-10'}`}>
         {navPage === 0 && (
           <>
-            <GeneralSettings
-              searchEngineAdaption={searchEngineAdaption}
-              weiboSupport={weiboSupport}
-              showOnlyBookmarkedResults={showOnlyBookmarkedResults}
-              tempMaxResults={tempMaxResults}
-              handleMaxResultsChange={handleMaxResultsChange}
-              handleMaxResultsSubmit={handleMaxResultsSubmit}
-              dispatch={dispatch}
-              toggleSearchEngineAdaption={toggleSearchEngineAdaption}
-              toggleWeiboSupport={toggleWeiboSupport}
-              toggleShowOnlyBookmarkedResults={toggleShowOnlyBookmarkedResults}
-            />
-
-            <StorageSettings
-              storeEveryPage={storeEveryPage}
-              bookmarkAdaption={bookmarkAdaption}
-              tempPageExpireTimeInDays={tempPageExpireTimeInDays}
-              tempForbiddenURLs={tempForbiddenURLs}
-              storeSize={storeSize}
-              setStoreSize={setStoreSize}
-              handlePageExpireTimeChange={handlePageExpireTimeChange}
-              handlePageExpireTimeSubmit={handlePageExpireTimeSubmit}
-              handleForbiddenURLsChange={handleForbiddenURLsChange}
-              handleBlurForbiddenURLs={handleBlurForbiddenURLs}
-              dispatch={dispatch}
-              toggleStoreEveryPage={toggleStoreEveryPage}
-              toggleBookmarkAdaption={toggleBookmarkAdaption}
-            />
+            <GeneralSettings {...generalSettingsProps} />
+            <StorageSettings {...storageSettingsProps} />
           </>
         )}
 
-        {navPage === 1 && (
-          <RemoteAPISettings
-            remoteStore={remoteStore}
-            remoteStoreEveryPage={remoteStoreEveryPage}
-            remoteStoreURL={remoteStoreURL}
-            tempRemoteStoreURL={tempRemoteStoreURL}
-            handleRemoteStoreURLChange={handleRemoteStoreURLChange}
-            handleBlurRemoteStoreURL={handleBlurRemoteStoreURL}
-            dispatch={dispatch}
-            toggleRemoteStore={toggleRemoteStore}
-            toggleRemoteStoreEveryPage={toggleRemoteStoreEveryPage}
-          />
-        )}
+        {navPage === 1 && <RemoteAPISettings {...remoteApiSettingsProps} />}
 
-        {navPage === 2 && (
-          <GPTSettings
-            showAskGPT={showAskGPT}
-            GPTKey={GPTKey}
-            GPTUrl={GPTUrl}
-            tempGPTKey={tempGPTKey}
-            tempGPTUrl={tempGPTUrl}
-            handleGPTKeyChange={handleGPTKeyChange}
-            handleGPTUrlChange={handleGPTUrlChange}
-            handleBlurGPTKey={handleBlurGPTKey}
-            handleBlurGPTUrl={handleBlurGPTUrl}
-            dispatch={dispatch}
-            toggleShowAskGPT={toggleShowAskGPT}
-          />
-        )}
+        {navPage === 2 && <GPTSettings {...gptSettingsProps} />}
 
         {navPage === 3 && <Feature />}
 

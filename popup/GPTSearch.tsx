@@ -9,6 +9,7 @@ import {
 } from "~store/stat-slice";
 import { useDispatch, useSelector } from "react-redux";
 import "~style.css"
+
 const GPTSearch = () => {
   const dispatch = useDispatch();
   const ExistedGPTAnswer = useSelector((state: AppStat) => state.GPTAnswer);
@@ -16,20 +17,25 @@ const GPTSearch = () => {
   const GPTLoading = useSelector((state: AppStat) => state.GPTLoading);
   const GPTKey = useSelector((state: AppStat) => state.GPTKey);
   const GPTURL = useSelector((state: AppStat) => state.GPTURL);
+  const GPTChatModel = useSelector((state: AppStat) => state.GPTChatModel);
+  const GPTEmbeddingModel = useSelector((state: AppStat) => state.GPTEmbeddingModel);
+  const GPTPromptTemplate = useSelector((state: AppStat) => state.GPTPromptTemplate);
   const [searchTerm, setSearchTerm] = useState("");
   const [searchResult, setSearchResult] =
     useState<IGPTAnswer>(ExistedGPTAnswer);
   const [isLoading, setIsLoading] = useState(GPTLoading);
+
   const handleSearchInputChange = (e) => {
     setSearchTerm(e.target.value);
-    // console.log(e.target.value);
   };
+
   const handleSearch = async () => {
-    if(!GPTKey || !GPTURL) {
-      dispatch(setGPTQuery(chrome.i18n.getMessage("gptFirst")))
+    if(!GPTKey || !GPTURL || !GPTChatModel || !GPTEmbeddingModel) {
+      const missingConfigMessage = chrome.i18n.getMessage("gptFirst")
+      dispatch(setGPTQuery(missingConfigMessage))
+      setSearchResult({ answer: missingConfigMessage, sources: null })
       return
     }
-    // code to handle search
     if (searchTerm === "" || searchTerm == " ") {
       return;
     }
@@ -38,13 +44,28 @@ const GPTSearch = () => {
     dispatch(setGPTQuery(searchTerm));
     dispatch(setGPTAnswer(null));
     chrome.runtime
-      .sendMessage({ command: "gptsearch", search: searchTerm,key:GPTKey,url:GPTURL })
+      .sendMessage({
+        command: "gptsearch",
+        search: searchTerm,
+        key: GPTKey,
+        url: GPTURL,
+        chatModel: GPTChatModel,
+        embeddingModel: GPTEmbeddingModel,
+        promptTemplate: GPTPromptTemplate
+      })
       .then((v) => {
-        // console.log(v);
         setSearchResult(v);
         dispatch(setGPTAnswer(v));
         setIsLoading(false);
         dispatch(setGPTLoading(false));
+      })
+      .catch((error) => {
+        const answer = error?.message || chrome.i18n.getMessage("popupAskRequestFailed")
+        const errorResult = { answer, sources: null }
+        setSearchResult(errorResult)
+        dispatch(setGPTAnswer(errorResult))
+        setIsLoading(false)
+        dispatch(setGPTLoading(false))
       });
   };
 
@@ -102,7 +123,6 @@ const GPTSearch = () => {
                     d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647zM12 20.735A7.962 7.962 0 0112 12v-4.735l-3 2.646v4.736a7.962 7.962 0 013 2.647zM17 12a5 5 0 11-10 0 5 5 0 0110 0z"
                   ></path>
                 </svg>
-                {/* <span>Waiting For Answers...</span> */}
               </div>
             ) : null}
           </div>

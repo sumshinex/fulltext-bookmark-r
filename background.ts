@@ -5,7 +5,7 @@ export {};
 import Dexie from "dexie";
 
 import "dexie-export-import";
-import { chatWithRefs, genEmbedding, initApi } from "~lib/chat";
+import { chat, chatWithRefs, fetchAvailableModels, genEmbedding, initApi } from "~lib/chat";
 import { v4 as uuidv4 } from "uuid";
 import debounce from "~lib/debounce";
 // @ts-ignore
@@ -21,6 +21,8 @@ import {
   getWeiboEncode,
   handleUrlRemoveHash,
   isWeibo,
+  type SearchEnginePageContext,
+  validateCustomSearchEngines,
   vectorToBlob,
 } from "~lib/utils";
 
@@ -41,16 +43,14 @@ import {
  */
 // reloadOnUpdate("pages/content/style.scss");
 
-console.log("background loaded");
+
 
 import { persistor, store } from "~store/store";
 import { wordSplit } from "~lib/wordSplit";
 import { createOffscreen } from "~lib/keepAlive";
 import { initStoragePersistence } from "~lib/presistStorage";
 let userOps = store.getState();
-console.log("first time ops",userOps);
 persistor.subscribe(() => {
-  console.log("State changed with: ", store?.getState())
   userOps = store?.getState()
 });
 
@@ -88,9 +88,7 @@ db.transaction("rw", db.pages, db.contents, async () => {
     .where("date")
     .below(Date.now() - userOps.tempPageExpireTime)
     .and(item => item.isBookmarked == false).primaryKeys();
-  console.log("del ids",delIDs, userOps.tempPageExpireTime
-  );
-  
+
   if (delIDs && delIDs.length > 0) {
     // @ts-ignore
     await db.pages.where("id").anyOf(delIDs).delete();
@@ -124,11 +122,99 @@ interface Message {
   pageId: string;
 }
 
+function normalizeSearchEnginePageContext(context: Partial<SearchEnginePageContext>): SearchEnginePageContext {
+  const toStringArray = (value: unknown) =>
+    Array.isArray(value)
+      ? value.filter((item): item is string => typeof item === "string" && item.trim()).slice(0, 10)
+      : []
+
+  return {
+    url: typeof context?.url === "string" ? context.url : "",
+    title: typeof context?.title === "string" ? context.title : "",
+    query: typeof context?.query === "string" ? context.query : "",
+    queryParamCandidates: toStringArray(context?.queryParamCandidates),
+    queryInputCandidates: toStringArray(context?.queryInputCandidates),
+    containerIdCandidates: toStringArray(context?.containerIdCandidates),
+    containerSelectorCandidates: toStringArray(context?.containerSelectorCandidates),
+    pageTextHints: toStringArray(context?.pageTextHints),
+  }
+}
+
+function extractJsonObject(text: string): string {
+  if (!text) {
+    throw new Error("Empty model response");
+  }
+
+  const fencedMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  const content = fencedMatch?.[1]?.trim() || text.trim();
+  const start = content.indexOf("{");
+  const end = content.lastIndexOf("}");
+
+  if (start === -1 || end === -1 || end <= start) {
+    throw new Error("Model did not return a JSON object");
+  }
+
+  return content.slice(start, end + 1);
+}
+
+function buildSearchEngineRulePrompt(context: SearchEnginePageContext): string {
+  return [
+    "Generate one SearchEngineRule JSON object for a browser extension.",
+    "Return JSON only. No markdown, no explanation.",
+    "Allowed keys: name, urlPattern, containerId, containerSelector, queryParam, queryInputSelector, insertPosition.",
+    "Requirements:",
+    "- urlPattern must be a valid regular expression string that matches pages like the current URL.",
+    "- Prefer queryParam when the query is clearly present in the URL.",
+    "- Prefer containerSelector when it is more stable than containerId.",
+    "- Prefer candidates that look like search result containers.",
+    "- Use pageTextHints to infer whether the page is a search result page and which container is most plausible.",
+    "- include only one of containerId/containerSelector when possible.",
+    "- include only one of queryParam/queryInputSelector when possible.",
+    "- insertPosition should usually be prepend.",
+    "- The rule must be suitable for JSON.parse().",
+    "Current page context:",
+    JSON.stringify(context, null, 2)
+  ].join("\n");
+}
+
+async function generateSearchEngineRule(context: SearchEnginePageContext, config: {
+  key: string;
+  url: string;
+  chatModel: string;
+}) {
+  const pageContext = normalizeSearchEnginePageContext(context);
+  if (!pageContext.url) {
+    throw new Error("Missing page context");
+  }
+
+  if (!config.key || !config.url || !config.chatModel) {
+    throw new Error("Missing GPT configuration");
+  }
+
+  initApi(config.key, config.url, {
+    chatModel: config.chatModel,
+  });
+
+  const response = await chat(buildSearchEngineRulePrompt(pageContext));
+  const jsonText = extractJsonObject(response);
+  const rule = JSON.parse(jsonText);
+  const validationError = validateCustomSearchEngines(JSON.stringify([rule]));
+
+  if (validationError) {
+    throw new Error(validationError);
+  }
+
+  if (!rule.insertPosition) {
+    rule.insertPosition = "prepend";
+  }
+
+  return rule;
+}
+
 // ====================================================================================================
 //===================================================================
 // get existed bookmarks
 function getBookmarksOnInstalled(){
-  console.log("installed");
   chrome.bookmarks.getTree(function (bookmarkTreeNodes) {
     const bookmarks = [];
 
@@ -175,11 +261,9 @@ chrome.runtime.onInstalled.addListener(
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   switch (message.command) {
     case 'sync':
-      console.log("sync",message.state);
       userOps = message.state;
       return "a";
     case "keepAlive":
-      console.log('keepAlive');
       return "a"
     // case "firsttime":
     //   console.log("firsttime");
@@ -237,10 +321,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       })();
       return true;
     case "popsearch":
-      console.log("popsearch", message.search);
       (async () => {
         const result = await searchString(message.search, "long");
-        console.log("search result", result)
         sendResponse(result);
       })();
       return true;
@@ -251,14 +333,58 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         store.dispatch(setGPTQuery(message.search));
         const apikey = message.key || userOps.GPTKey;
         const apiBaseUrl = message.url || userOps.GPTURL;
+        const chatModel = message.chatModel || userOps.GPTChatModel;
+        const embeddingModel = message.embeddingModel || userOps.GPTEmbeddingModel;
+        const promptTemplate = message.promptTemplate || userOps.GPTPromptTemplate;
 
-        // console.log("asd", apikey, apiBaseUrl);
-        initApi(apikey, apiBaseUrl);
+        initApi(apikey, apiBaseUrl, {
+          chatModel,
+          embeddingModel,
+          promptTemplate,
+        });
         const result = await searchStringGPT(message.search);
         store.dispatch(setGPTAnswer(result));
         store.dispatch(setGPTLoading(false));
         // console.log("search result", result)
         sendResponse(result);
+      })();
+      return true;
+    case "gpt_models":
+      (async () => {
+        try {
+          const apikey = message.key || userOps.GPTKey;
+          const apiBaseUrl = message.url || userOps.GPTURL;
+          initApi(apikey, apiBaseUrl, {
+            chatModel: userOps.GPTChatModel,
+            embeddingModel: userOps.GPTEmbeddingModel,
+            promptTemplate: userOps.GPTPromptTemplate,
+          });
+          const models = await fetchAvailableModels(apikey, apiBaseUrl);
+          sendResponse({ ok: true, models });
+        } catch (error) {
+          sendResponse({
+            ok: false,
+            error: error.message || "Failed to fetch models",
+            models: [],
+          });
+        }
+      })();
+      return true;
+    case "generate_search_engine_rule":
+      (async () => {
+        try {
+          const rule = await generateSearchEngineRule(message.context, {
+            key: message.key || userOps.GPTKey,
+            url: message.url || userOps.GPTURL,
+            chatModel: message.chatModel || userOps.GPTChatModel,
+          });
+          sendResponse({ ok: true, rule });
+        } catch (error) {
+          sendResponse({
+            ok: false,
+            error: error.message || "Failed to generate rule",
+          });
+        }
       })();
       return true;
     case "clearAllData":
@@ -474,11 +600,8 @@ async function saveToDatabase(data: PageData) {
   // @ts-ignore
   const existedId = await db.pages.where("pageId").equals(data.pageId).first();
   if (existedId && existedId.id) {
-    //  console.log("existed,update")
     return;
   }
-  data.contentWords = wordSplit(data.content);
-  data.titleWords = wordSplit(data.title);
 
   const indexData = {
     url: data.url,
@@ -487,56 +610,52 @@ async function saveToDatabase(data: PageData) {
     isBookmarked: data.isBookmarked,
     pageId: data.pageId,
   };
-  const largeData = {
-    contentWords: data.contentWords,
-    titleWords: data.titleWords,
-    content: data.content,
-  };
   const options = store.getState();
   if (options.remoteStore) {
     if (options.remoteStoreEveryPage || data.isBookmarked) {
       sendToRemote(indexData);
     }
   }
+
   // @ts-ignore
   db.transaction("rw", db.pages, db.contents, async () => {
     // @ts-ignore
     const existed = await db.pages.where("url").equals(data.url).first();
+    const contentWords = wordSplit(data.content);
+    const titleWords = wordSplit(data.title);
+    const hasSearchableContent = contentWords.length > 0 || titleWords.length > 0;
+    const largeData = {
+      contentWords,
+      titleWords,
+      content: data.content,
+    };
+
     if (existed && existed.id) {
       const id = existed.id;
-      let ps = [];
+      const ps = [];
       // @ts-ignore
       ps.push(db.pages.update(id, indexData));
-      if (
-        largeData.contentWords.length > 0 &&
-        largeData.titleWords.length > 0
-      ) {
+      if (hasSearchableContent) {
         // @ts-ignore
         ps.push(db.contents.where("pid").equals(id).modify(largeData));
       }
       await Promise.all(ps);
-      // console.log("same url, update")
       return;
     }
 
     // @ts-ignore
     const id = await db.pages.add(indexData);
-
     // @ts-ignore
     await db.contents.add({ pid: id, ...largeData });
-    // @ts-ignore
-    // console.log("db saved: ", id)
   }).catch((e) => {
     alert(e.stack || e);
   });
 }
 
 // a search method that give the most possible result
-function findAndSort(prefixes, field,GPT): Promise<any[]> {
+function findAndSort(prefixes, field, GPT): Promise<any[]> {
   // @ts-ignore
   return db.transaction("r", db.contents, db.pages, function* () {
-    // Parallell search for all prefixes - just select resulting primary keys
-
     const results = yield Dexie.Promise.all(
       prefixes.map((prefix) =>
         // @ts-ignore
@@ -544,59 +663,37 @@ function findAndSort(prefixes, field,GPT): Promise<any[]> {
       )
     );
 
-    // faltten the array => sort => count
-
-    const flatten = results.flat();
-    const sorted = flatten.sort();
-    // count frequency of each primary key
-    const counts = sorted.reduce((acc, curr) => {
-      acc[curr] = (acc[curr] || 0) + 1;
-      return acc;
-    }, {});
-    // sort by counts
-    let sortedCounts = Object.keys(counts).sort((a, b) => {
-      return counts[b] - counts[a];
-    });
-    let intArray = [] as number[];
-    sortedCounts.forEach((e) => {
-      intArray.push(parseInt(e.toString()));
+    const counts = new Map<number, number>();
+    results.forEach((matches) => {
+      matches.forEach((id) => {
+        counts.set(id, (counts.get(id) || 0) + 1);
+      });
     });
 
-    // if bookmarked priority option is enabled, then sort by bookmark status
-    // const userOptions = store.getState();
-    // console.log("userOptions",userOptions);
-    
+    const limit = GPT ? userOps.GPTSearchMaxNumber : userOps.maxResults;
+    let intArray = Array.from(counts.entries())
+      .sort((a, b) => b[1] - a[1])
+      .map(([id]) => id);
+
     if (userOps.showOnlyBookmarkedResults === true && !GPT) {
-      console.log("show only bookmarked results")
-
-      if (intArray.length > 300) {
-        // @ts-ignore
-        const bookmarked = yield db.pages
-          .where("isBookmarked")
-          .equals(1)
-          .primaryKeys();
-        const set = new Set(bookmarked);
-        intArray = intArray.filter((e) => set.has(e));
-      } else {
-        // get from db where id is in intarray and isBookmarked is true
-        // @ts-ignore
-        intArray = yield db.pages
-          .where(":id")
-          .anyOf(intArray)
-          .filter((e) => {
-            return e.isBookmarked === true;
-          })
-          .primaryKeys();
+      const bookmarkedLimit = Math.max(limit, 300);
+      const candidateIds = intArray.slice(0, bookmarkedLimit);
+      if (candidateIds.length === 0) {
+        return [];
       }
-    }
-    // if the result is too long, cut some
-    if (intArray.length > userOps.maxResults) {
-      intArray = intArray.slice(0, userOps.maxResults);
+
+      // @ts-ignore
+      const bookmarkedCandidates = yield db.pages
+        .where(":id")
+        .anyOf(candidateIds)
+        .filter((item) => item.isBookmarked === true)
+        .primaryKeys();
+      const bookmarkedSet = new Set(bookmarkedCandidates);
+      intArray = candidateIds.filter((id) => bookmarkedSet.has(id));
     }
 
-    // if gtp search, cut some
-    if (GPT && intArray.length > userOps.GPTSearchMaxNumber) {
-      intArray = intArray.slice(0, userOps.GPTSearchMaxNumber);
+    if (intArray.length > limit) {
+      intArray = intArray.slice(0, limit);
     }
 
     // @ts-ignore
@@ -606,160 +703,186 @@ function findAndSort(prefixes, field,GPT): Promise<any[]> {
 
 async function getPageData(a) {
   // @ts-ignore
-  const contentA = await db.contents.where("pid").equals(a.id).toArray();
-  return { content: contentA[0].content, ...a };
+  const contentA = await db.contents.where("pid").equals(a.id).first();
+  return { content: contentA?.content || "", ...a };
 }
 
 async function getEmbedding(a) {
-  // console.log("getEmbedding", a);
-  // let docs = await textSplitter(a)
-  // console.log("getEmbedding",docs);
   // @ts-ignore
   const existed = await db.vectors.where("pid").equals(a.id).first();
   if (existed && existed.id) {
-    // console.log("getEmbedding,existed");
-    //TODO:get embeddings from database
     // @ts-ignore
     const emds = await db.vectors.where("pid").equals(a.id).sortBy("serial");
-    // console.log("emds", emds);
     const vecs = await Promise.all(
       emds.map((e) => {
         return blobToVector(e.vectorBlob);
       })
     );
-    const nn = emds.map((e, i) => {
+    return emds.map((e, i) => {
       delete e.vectorBlob;
       return { vector: vecs[i], ...e };
     });
-    return nn;
   }
+
   const content = await getPageData(a);
   const docs = await textSplitter(content);
+  if (!docs || docs.length === 0) {
+    return [];
+  }
 
   const newVecs = await Promise.all(
     docs.map((d) => genEmbedding(d.pageContent))
   );
-  // console.log(newVecs);
 
   // @ts-ignore
   await db.vectors.where("pid").equals(a.id).delete();
   await Promise.all(
     newVecs.map((e, i) => {
       const b = { pid: a.id, serial: i, vectorBlob: vectorToBlob(e) };
-      // console.log("store", b);
       // @ts-ignore
       return db.vectors.add(b);
     })
   );
-  return newVecs.map((d, i) => {
-    const c = { vector: [], pid: 0, serial: 0 };
-    c.vector = d;
-    c.pid = a.id;
-    c.serial = i;
-    return c;
-  });
+
+  return newVecs.map((vector, serial) => ({
+    vector,
+    pid: a.id,
+    serial,
+  }));
+}
+
+function getSearchTerms(search: string): string[] {
+  if (!search) {
+    return [];
+  }
+  return wordSplit(search);
 }
 
 async function searchStringGPT(search: string): Promise<IGPTAnswer> {
-  // console.log("ggggg");
-
   if (!search) {
-    // console.log("aaaaa");
     return { answer: "you ask for nothing", sources: null };
   }
-  const splitSearch = wordSplit(search);
-  const wordResult = await findAndSort(splitSearch, "contentWords",true);
-  if (wordResult && wordResult.length > 0) {
-    // console.log("wordResult", wordResult);
-    let vectorsArray = [];
-    try {
-      vectorsArray = await Promise.all(
-        wordResult.map((a) => {
-          return getEmbedding(a);
-        })
-      );
-    } catch (error) {
-      return { answer: error.message, sources: null };
-    }
-    const vectorsArrayFlat = vectorsArray.flat();
-    // console.log("vectorsArrayFlat", vectorsArrayFlat);
-    const index = vectorsArrayFlat.map((d) => {
-      return d.vector;
-    });
 
-    // console.log("index", index);
-    let queryVector;
-    try {
-      queryVector = await genEmbedding(search);
-    } catch (error) {
-      return { answer: error.message, sources: null };
-    }
-
-    // console.log("q", queryVector);
-    const nearestIndex = findNearestArrays(index, queryVector, 1)[0]; //TODO：TOP
-    const near = vectorsArrayFlat[nearestIndex];
-    // console.log("near", near);
-    // @ts-ignore
-    const nearPage = await db.pages.where("id").equals(near.pid).first();
-    const nearContent = await getPageData(nearPage);
-    const nearDocs = await textSplitter(nearContent);
-    const nearestDoc = nearDocs[near.serial];
-    let answerString;
-    try {
-      //
-      // console.log(userOps);
-
-      answerString = await chatWithRefs(search, [
-        { content: nearestDoc.pageContent, source: nearestDoc.metadata.url },
-      ]);
-    } catch (error) {
-      // console.log(error);
-
-      return { answer: error.message, sources: null };
-    }
-    return { answer: answerString, sources: [nearPage] };
-  } else {
-    // console.log("bbbbb");
-
+  const splitSearch = getSearchTerms(search);
+  if (splitSearch.length === 0) {
     return {
       answer: "no refrences found in your archieved webpages",
       sources: null,
     };
   }
+
+  const wordResult = await findAndSort(splitSearch, "contentWords", true);
+  if (!wordResult || wordResult.length === 0) {
+    return {
+      answer: "no refrences found in your archieved webpages",
+      sources: null,
+    };
+  }
+
+  const gptCandidates = wordResult.slice(0, 5);
+  let vectorsArray = [];
+  try {
+    vectorsArray = await Promise.all(
+      gptCandidates.map((item) => {
+        return getEmbedding(item);
+      })
+    );
+  } catch (error) {
+    return { answer: error.message, sources: null };
+  }
+
+  const candidateVectors = vectorsArray.flat();
+  if (candidateVectors.length === 0) {
+    return {
+      answer: "no refrences found in your archieved webpages",
+      sources: null,
+    };
+  }
+
+  let queryVector;
+  try {
+    queryVector = await genEmbedding(search);
+  } catch (error) {
+    return { answer: error.message, sources: null };
+  }
+
+  const candidateIndex = candidateVectors.map((item) => item.vector)
+  const nearestIndex = findNearestArrays(
+    candidateIndex,
+    queryVector,
+    1
+  )[0];
+  const near = candidateVectors[nearestIndex];
+  if (!near) {
+    return {
+      answer: "no refrences found in your archieved webpages",
+      sources: null,
+    };
+  }
+
+  // @ts-ignore
+  const nearPage = await db.pages.where("id").equals(near.pid).first();
+  if (!nearPage) {
+    return {
+      answer: "no refrences found in your archieved webpages",
+      sources: null,
+    };
+  }
+
+  const nearContent = await getPageData(nearPage);
+  const nearDocs = await textSplitter(nearContent);
+  const nearestDoc = nearDocs[near.serial];
+  if (!nearestDoc) {
+    return {
+      answer: "no refrences found in your archieved webpages",
+      sources: null,
+    };
+  }
+
+  let answerString;
+  try {
+    answerString = await chatWithRefs(search, [
+      { content: nearestDoc.pageContent, source: nearestDoc.metadata.url },
+    ]);
+  } catch (error) {
+    return { answer: error.message, sources: null };
+  }
+
+  return { answer: answerString, sources: [nearPage] };
 }
+
 async function searchString(search: string, type: string) {
-  if (!search) {
+  const splitSearch = getSearchTerms(search);
+  if (splitSearch.length === 0) {
     return [];
   }
-  const splitSearch = wordSplit(search);
-  console.log("splitSearch",splitSearch)
+
   const titleResult = await findAndSort(splitSearch, "titleWords");
-  // console.log("titleResult", titleResult)
-  // @ts-ignore
-  if (titleResult && titleResult.length > 0) {
-    if (type === "short") {
-      return titleResult;
-    }
+  if (titleResult && titleResult.length > 0 && type === "short") {
+    return titleResult;
   }
+
   const wordResult = await findAndSort(splitSearch, "contentWords");
-  // console.log("wordResult", wordResult)
-  // @ts-ignore
   if (titleResult && titleResult.length > 0) {
     if (wordResult && wordResult.length > 0) {
-      const a = [...titleResult, ...wordResult];
-      // deleted duplicated result identified by id in array a
-      const aa = new Set(a.map((item) => item.id));
-      let y = [];
-      aa.forEach((e) => {
-        y.push(a.find((item) => item.id === e));
+      const dedupedResults = [];
+      const seenIds = new Set();
+      [...titleResult, ...wordResult].forEach((item) => {
+        if (!item || seenIds.has(item.id)) {
+          return;
+        }
+        seenIds.add(item.id);
+        dedupedResults.push(item);
       });
-      return y;
+      return dedupedResults;
     }
     return titleResult;
-  } else if (wordResult && wordResult.length > 0) {
+  }
+
+  if (wordResult && wordResult.length > 0) {
     return wordResult;
   }
-  // console.log("precise search no match")
+
   return [];
 }
 
@@ -768,29 +891,24 @@ async function searchString(search: string, type: string) {
 // ============================================================================================
 function sendToRemote(data: PageData) {
   (async () => {
+    const remoteStoreURL = userOps.remoteStoreURL?.trim();
+    if (!remoteStoreURL) {
+      return;
+    }
+
     const postData = {
       url: data.url,
       title: data.title,
       date: data.date,
       isBookmarked: data.isBookmarked,
     };
+
     if (isWeibo(postData.url)) {
       const encode = getWeiboEncode(postData.url);
       postData.url = "https://m.weibo.cn/status/" + mid.decode(encode);
     }
-    console.log("sendToRemote", postData);
 
-    // const userOptions = store.getState();
-    // console.log("sendToRemote options", userOptions.remoteStoreURL, userOptions)
-    if (
-      !userOps.remoteStoreURL ||
-      userOps.remoteStoreURL === "" ||
-      userOps.remoteStoreURL === " "
-    ) {
-      // console.log("no remote store url")
-      return;
-    }
-    const rawRes = await fetch(userOps.remoteStoreURL, {
+    await fetch(remoteStoreURL, {
       method: "POST",
       headers: {
         Accept: "application/json",
@@ -798,8 +916,6 @@ function sendToRemote(data: PageData) {
       },
       body: JSON.stringify(postData),
     });
-    // const res = await rawRes.json();
-    // console.log(rawRes)
   })();
 }
 

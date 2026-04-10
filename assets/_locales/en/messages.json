@@ -24,11 +24,11 @@
     "description": "Search button."
   },
   "gptFirst": {
-    "message": "To use this function, please set OpenAI API URL and your own API key in Settings.",
+    "message": "Please configure API Base URL, API Key, chat model, and embedding model in Settings first.",
     "description": "Search button."
   },
   "settingPageGPTURLDesp": {
-    "message": "OpenAI API URL and API Key",
+    "message": "API Base URL and API Key",
     "description": "Search button."
   },
   "settingPageGPTTest": {
@@ -46,6 +46,10 @@
   "popupAskAnswerCopy": {
     "message": "Copy",
     "description": "Search button."
+  },
+  "popupAskRequestFailed": {
+    "message": "Request failed. Please check network, base URL, or model settings.",
+    "description": "Ask GPT request failed message."
   },
   "popupAskAnswerSource": {
     "message": "Sources from archive:",
@@ -124,8 +128,176 @@
     "description": "Search button."
   },
   "settingPageSettingSearchPageNote": {
-    "message": "Support Google/Bing/Baidu.",
+    "message": "Support Google/Bing/Baidu/DuckDuckGo/Yandex, and also custom search engine rules.",
     "description": "Search button."
+  },
+  "settingPageSettingSearchCustomEngineDesp": {
+    "message": "Custom Search Engine Rules",
+    "description": "Custom search engine rule description."
+  },
+  "settingPageSettingSearchCustomEngineNote": {
+    "message": "Provide a JSON array. Each rule must include urlPattern and either containerId or containerSelector, plus queryParam or queryInputSelector. Optional insertPosition: prepend/append/beforebegin/afterbegin/beforeend/afterend.",
+    "description": "Custom search engine rule note."
+  },
+  "settingPageSettingSearchCustomEngineExample": {
+    "message": "Example: [{\n  \"name\": \"DuckDuckGo\",\n  \"urlPattern\": \"^https://duckduckgo\\\\.com/.*\",\n  \"containerSelector\": \"#links\",\n  \"queryParam\": \"q\",\n  \"insertPosition\": \"prepend\"\n}]",
+    "description": "Custom search engine rule example."
+  },
+  "settingPageSettingSearchGenerateDesp": {
+    "message": "AI Generate Search Engine Rule",
+    "description": "AI generate custom search engine rule description."
+  },
+  "settingPageSettingSearchGenerateNote": {
+    "message": "Open a search page in the current tab, then let AI infer a rule from the page URL and DOM hints.",
+    "description": "AI generate custom search engine rule note."
+  },
+  "settingPageSettingSearchGenerateBtn": {
+    "message": "Generate Rule",
+    "description": "AI generate custom search engine rule button."
+  },
+  "settingPageSettingSearchGenerateLoading": {
+    "message": "Generating...",
+    "description": "AI generate custom search engine rule loading text."
+  },
+  "settingPageSettingSearchGenerateSuccess": {
+    "message": "Generated a rule suggestion.",
+    "description": "AI generate custom search engine rule success message."
+  },
+  "settingPageSettingSearchGenerateAppendBtn": {
+    "message": "Append To Custom Rules",
+    "description": "Append generated rule button."
+  },
+  "settingPageSettingSearchGenerateReplaceBtn": {
+    "message": "Replace With This Rule",
+    "description": "Replace custom rules with generated rule button."
+  },
+  "settingPageSettingSearchGenerateCopyBtn": {
+    "message": "Copy JSON",
+    "description": "Copy generated rule JSON button."
+  },
+  "settingPageSettingSearchGenerateTestBtn": {
+    "message": "Test On Current Page",
+    "description": "Test generated rule against current page button."
+  },
+  "settingPageSettingSearchGenerateAppendSuccess": {
+    "message": "Appended generated rule to custom rules.",
+    "description": "Append generated rule success message."
+  },
+  "settingPageSettingSearchGenerateReplaceSuccess": {
+    "message": "Replaced custom rules with the generated rule.",
+    "description": "Replace custom rules success message."
+  },
+  "settingPageSettingSearchGenerateCopySuccess": {
+    "message": "Copied generated rule JSON.",
+    "description": "Copy generated rule success message."
+  },
+  "settingPageSettingSearchGenerateTestSuccess": {
+    "message": "Rule matched the current page.",
+    "description": "Rule test success message."
+  },
+  "settingPageSettingSearchGenerateAppendFail": {
+    "message": "Failed to append generated rule.",
+    "description": "Append generated rule failure message."
+  },
+  "settingPageSettingSearchGenerateReplaceFail": {
+    "message": "Failed to replace custom rules with the generated rule.",
+    "description": "Replace custom rules failure message."
+  },
+  "settingPageSettingSearchGenerateTestFail": {
+    "message": "Rule did not fully match the current page.",
+    "description": "Rule test failure message."
+  },
+  "settingPageSettingSearchGenerateAppendFixError": {
+    "message": "Please fix the current custom rule JSON before appending.",
+    "description": "Append generated rule blocked by invalid JSON."
+  },
+  "settingPageSettingSearchGenerateTabError": {
+    "message": "Could not read the current tab.",
+    "description": "Current tab unavailable message."
+  },
+  "settingPageSettingSearchGenerateContextError": {
+    "message": "Could not collect enough page context from the current tab.",
+    "description": "Collect page context failure message."
+  },
+  "settingPageSettingSearchGenerateTestUnavailable": {
+    "message": "Could not test the rule on the current tab.",
+    "description": "Rule test unavailable message."
+  },
+  "settingPageSettingSearchGenerateTestStatusUrl": {
+    "message": "URL matched",
+    "description": "Rule test URL match label."
+  },
+  "settingPageSettingSearchGenerateTestStatusContainer": {
+    "message": "Container matched",
+    "description": "Rule test container match label."
+  },
+  "settingPageSettingSearchGenerateTestStatusQuery": {
+    "message": "Query matched",
+    "description": "Rule test query match label."
+  },
+  "settingPageSettingSearchGenerateTestMatchedContainer": {
+    "message": "Matched container",
+    "description": "Rule test matched container label."
+  },
+  "settingPageSettingSearchGenerateTestMatchedQuery": {
+    "message": "Matched query",
+    "description": "Rule test matched query label."
+  },
+  "settingPageSettingSearchGenerateTestIssuesTitle": {
+    "message": "Issues",
+    "description": "Rule test issues title."
+  },
+  "settingPageSettingSearchGenerateTestSuggestionsTitle": {
+    "message": "Suggestions",
+    "description": "Rule test suggestions title."
+  },
+  "settingPageSettingSearchGenerateDiagInvalidRegexIssue": {
+    "message": "urlPattern is not a valid regular expression.",
+    "description": "Invalid regex issue message."
+  },
+  "settingPageSettingSearchGenerateDiagInvalidRegexSuggestion": {
+    "message": "Fix urlPattern so it can be used with new RegExp(...).",
+    "description": "Invalid regex suggestion message."
+  },
+  "settingPageSettingSearchGenerateDiagUrlIssue": {
+    "message": "urlPattern did not match the current URL.",
+    "description": "URL mismatch issue message."
+  },
+  "settingPageSettingSearchGenerateDiagUrlSuggestion": {
+    "message": "Refine urlPattern to match this page, for example: $1",
+    "description": "URL mismatch suggestion message."
+  },
+  "settingPageSettingSearchGenerateDiagContainerIssue": {
+    "message": "The result container was not found on the current page.",
+    "description": "Container mismatch issue message."
+  },
+  "settingPageSettingSearchGenerateDiagContainerSelectorSuggestion": {
+    "message": "Try containerSelector: $1",
+    "description": "Container selector suggestion message."
+  },
+  "settingPageSettingSearchGenerateDiagContainerIdSuggestion": {
+    "message": "Try containerId: $1",
+    "description": "Container id suggestion message."
+  },
+  "settingPageSettingSearchGenerateDiagContainerFallbackSuggestion": {
+    "message": "Check whether the search result container selector still matches the current DOM.",
+    "description": "Fallback container suggestion message."
+  },
+  "settingPageSettingSearchGenerateDiagQueryIssue": {
+    "message": "The query could not be extracted from the current page.",
+    "description": "Query mismatch issue message."
+  },
+  "settingPageSettingSearchGenerateDiagQueryParamSuggestion": {
+    "message": "Try queryParam: $1",
+    "description": "Query param suggestion message."
+  },
+  "settingPageSettingSearchGenerateDiagQuerySelectorSuggestion": {
+    "message": "Try queryInputSelector: $1",
+    "description": "Query selector suggestion message."
+  },
+  "settingPageSettingSearchGenerateDiagQueryFallbackSuggestion": {
+    "message": "Check whether the query comes from URL params or a visible search input.",
+    "description": "Fallback query suggestion message."
   },
   "settingPageSettingWeiboDesp": {
     "message": "Show save button in Weibo",
@@ -328,11 +500,11 @@
     "description": "GPT settings note."
   },
   "settingPageSettingGPTUrlDesp": {
-    "message": "OpenAI API URL",
+    "message": "API Base URL",
     "description": "GPT URL settings description."
   },
   "settingPageSettingGPTUrlNote": {
-    "message": "The URL for OpenAI API requests.",
+    "message": "Enter an OpenAI-compatible API base URL, for example https://api.openai.com/v1 .",
     "description": "GPT URL settings note."
   },
   "settingPageSettingGPTKeyDesp": {
@@ -342,6 +514,66 @@
   "settingPageSettingGPTKeyNote": {
     "message": "Your personal OpenAI API key for authentication.",
     "description": "GPT key settings note."
+  },
+  "settingPageSettingGPTModelsFetchDesp": {
+    "message": "Fetch Model List",
+    "description": "Fetch model list description."
+  },
+  "settingPageSettingGPTModelsFetchNote": {
+    "message": "Fetch available models using the current Base URL and API key.",
+    "description": "Fetch model list note."
+  },
+  "settingPageSettingGPTModelsFetchBtn": {
+    "message": "Fetch Models",
+    "description": "Fetch models button text."
+  },
+  "settingPageSettingGPTModelsFetchLoading": {
+    "message": "Fetching...",
+    "description": "Fetch models loading text."
+  },
+  "settingPageSettingGPTChatModelDesp": {
+    "message": "Chat Model",
+    "description": "Chat model setting description."
+  },
+  "settingPageSettingGPTEmbeddingModelDesp": {
+    "message": "Embedding Model",
+    "description": "Embedding model setting description."
+  },
+  "settingPageSettingGPTPromptTemplateDesp": {
+    "message": "Custom Prompt Template",
+    "description": "Prompt template setting description."
+  },
+  "settingPageSettingGPTPromptTemplateNote": {
+    "message": "Customize the Ask GPT prompt template, including answer style and citation format.",
+    "description": "Prompt template setting note."
+  },
+  "settingPageSettingGPTMissingConfig": {
+    "message": "Please fill in API Base URL, API Key, and model configuration first.",
+    "description": "Message shown when GPT configuration is missing."
+  },
+  "settingPageSettingGPTModelsFetchSuccess": {
+    "message": "Fetched models successfully",
+    "description": "Model fetch success message."
+  },
+  "settingPageSettingGPTModelsFetchEmpty": {
+    "message": "Connected successfully, but the API returned no model list.",
+    "description": "Model fetch empty message."
+  },
+  "settingPageSettingGPTCurrentModelDesp": {
+    "message": "Current Model Configuration",
+    "description": "Current model configuration description."
+  },
+  "settingPageSettingGPTCurrentModelHint": {
+    "message": "The saved model configuration below shows which models Ask GPT will currently use.",
+    "description": "Current model configuration hint."
+  },
+  "settingPageSettingGPTCurrentChatModelNote": {
+    "message": "Chat model",
+    "description": "Current chat model note."
+  },
+  "settingPageSettingGPTCurrentEmbeddingModelNote": {
+    "message": "Embedding model",
+    "description": "Current embedding model note."
   },
   "settingPageSettingGPTTestDesp": {
     "message": "Test API Connection",

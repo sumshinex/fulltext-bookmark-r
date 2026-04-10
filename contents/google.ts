@@ -1,20 +1,20 @@
 import type { PlasmoContentScript } from "plasmo"
 
-import { getUrlVars, isBaidu, isBing, isGoogle, truncateText } from "~/lib/utils"
-
-// import "../style.css"
+import debounce from "~lib/debounce"
+import {
+  getSearchEngineRule,
+  getUrlVars,
+  parseCustomSearchEngines,
+  truncateText,
+  type SearchEnginePageContext,
+  type SearchEngineRule
+} from "~/lib/utils"
 
 export const config: PlasmoContentScript = {
-  matches: [
-    "https://www.google.com/*",
-    "https://cn.bing.com/*",
-    "https://www.baidu.com/*",
-    "https://www.bing.com/*"
-  ],
-  // run_at: "document_start",
+  matches: ["<all_urls>"],
   all_frames: false
 }
-// console.log("content script loaded")
+
 interface SearchResult {
   title: string
   url: string
@@ -22,280 +22,566 @@ interface SearchResult {
   ok: boolean
 }
 
-// gloab var
-let rootContainerID = ""
-let queryWordId = ""
+interface SearchRuleTestResult {
+  ok: boolean
+  urlMatched: boolean
+  containerMatched: boolean
+  queryMatched: boolean
+  matchedContainer: string
+  matchedQuery: string
+  message: string
+  issues: string[]
+  suggestions: string[]
+}
+
+const resultWrapperStyle = `
+  height: 130px;
+  margin-top: 10px;
+  margin-bottom: 15px;
+  z-index: 10;
+`
+
+const resultBoxStyle = `
+  max-height: 130px;
+  border: 2px solid #D1D5DB;
+  border-radius: calc(min(0.375rem, 6px));
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  padding: calc(min(1rem, 16px));
+  padding-bottom: calc(min(0.5rem, 8px));
+  gap: 5px;
+`
+
+const resultTitleStyle = `
+  font-size: calc(min(1.125rem, 18px));
+  line-height: calc(min(1.75rem, 28px));
+  color: #60a5fa;
+`
+
+const resultTextStyle = `
+  font-size: calc(min(0.875rem, 14px));
+  line-height: calc(min(1.25rem, 20px));
+  color: black;
+`
+
+const resultFooterStyle = `
+  font-size: calc(min(0.875rem, 14px));
+  line-height: calc(min(1.25rem, 20px));
+  color: #6B7280;
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+`
+
+const resultWatermarkStyle = `
+  font-size: calc(min(0.75rem, 12px));
+  line-height: calc(min(1rem, 16px));
+  padding-top: calc(min(1rem, 16px));
+  color: #E5E7EB;
+`
+
 let showSearchResult = "true"
 let thisURL = window.location.href
 const storageKey = "fulltextbookmark"
+const mountPointId = "fulltext-bookmark-mount-point"
 let searchResult: SearchResult | null = null
 let queryWord = ""
-let resultElement = null
-let searchFinished = 0
+let resultElement: HTMLDivElement | null = null
+let currentSearchEngineName = ""
+let currentSearchEngineRule: SearchEngineRule | null = null
+let customSearchEngineRules: SearchEngineRule[] = []
 
-// get user options to decide whether to show search result
-chrome.storage.local.get([`persist:${storageKey}`], (items) => {
-  if (items[`persist:${storageKey}`]) {
-    // console.log("persist result",items[`persist:${storageKey}`])
-    const rootParsed = JSON.parse(items[`persist:${storageKey}`])
-    showSearchResult = rootParsed?.searchEngineAdaption
-  } else {
-    // console.log("no persist result")
-  }
-  prepare()
-
-  if (showSearchResult === "true") {
-    if (isBaidu(thisURL)) {
-      setInterval(() => {
-        if (thisURL !== window.location.href) {
-          // console.log("bbb")
-          thisURL = window.location.href
-          window.location.reload()
-          // prepare()
-          // const originContainer = document.getElementById(rootContainerID)
-          // originContainer.insertBefore(resultElement, originContainer.firstChild)
-        }
-      }, 100)
-    }
-  }
-})
-
-function doWork() {
-  // console.log("do work")
-  const originContainer = document.getElementById(rootContainerID)
-  if (!originContainer) {
-    // console.log("originContainer not exist")
-    searchFinished = -1
-    return
-  }
-  if (showSearchResult !== "true") {
-    // console.log("ssssss not rrrr")
-    searchFinished = -1
-    return
-  }
-  originContainer.insertBefore(resultElement, originContainer.firstChild)
+const clearResult = () => {
+  document.getElementById(mountPointId)?.remove()
 }
 
-// do work
-// window.addEventListener("load", () => {
-//   console.log("window loaded")
-//   const originContainer = document.getElementById(rootContainerID)
-//   if(!originContainer) {
-//     // console.log("originContainer not exist")
-//     searchFinished = -1
-//     return
-//   }
-//   if(showSearchResult!=="true") {
-//     searchFinished = -1
-//     return
-//   }
-//   if(resultElement) {
-//     originContainer.insertBefore(resultElement, originContainer.firstChild)
-//   } else {
+const resetSearchState = () => {
+  searchResult = null
+  queryWord = ""
+  resultElement = null
+  currentSearchEngineName = ""
+  currentSearchEngineRule = null
+}
 
-//     if(searchFinished === -1) {
-//       return
-//     } else {
-//       // console.log("wait for resultElement to be ready")
-//       let i=0
-//       const a = setInterval(()=>{
-//         if(i++>=50) {
-//           // console.log("wait timeout")
-//           clearInterval(a)
-//         }
-//         if(searchFinished === -1) {
-//           clearInterval(a)
-//         }
-//         if(resultElement) {
-//           originContainer.insertBefore(resultElement, originContainer.firstChild)
-//           console.log(i)
-//           clearInterval(a)
-//         }
-//       },20)
-//     }
-//   }
-// })
+const runWhenDocumentReady = (callback: () => void) => {
+  if (document.readyState === "complete") {
+    callback()
+    return
+  }
+
+  window.addEventListener("load", callback, { once: true })
+}
+
+function getResultContainer(rule: SearchEngineRule): HTMLElement | null {
+  if (rule.containerSelector) {
+    return document.querySelector(rule.containerSelector)
+  }
+  if (rule.containerId) {
+    return document.getElementById(rule.containerId)
+  }
+  return null
+}
+
+function getQueryWord(rule: SearchEngineRule) {
+  if (rule.queryParam) {
+    const queryFromUrl = getUrlVars(thisURL)[rule.queryParam]
+    if (queryFromUrl) {
+      return queryFromUrl
+    }
+  }
+
+  if (rule.queryInputSelector) {
+    const input = document.querySelector(rule.queryInputSelector) as HTMLInputElement | null
+    return input?.value?.trim() || ""
+  }
+
+  return ""
+}
+
+const uniqueStrings = (values: string[]) => Array.from(new Set(values.filter(Boolean)))
+
+const scoreCandidateText = (value: string) => {
+  const normalized = value.toLowerCase()
+  let score = 0
+  if (normalized.includes("result")) score += 3
+  if (normalized.includes("search")) score += 3
+  if (normalized.includes("content")) score += 2
+  if (normalized.includes("main")) score += 2
+  if (normalized.includes("link")) score += 2
+  if (normalized.includes("center")) score += 1
+  return score
+}
+
+const sortCandidatesByScore = (values: string[]) =>
+  [...values].sort((a, b) => scoreCandidateText(b) - scoreCandidateText(a) || a.length - b.length)
+
+const getPageTextHints = () => {
+  const textBlocks = Array.from(
+    document.querySelectorAll<HTMLElement>("title, h1, h2, [role='main'], main, #search, #results, #links")
+  )
+    .map((element) => element.textContent?.trim() || "")
+    .filter(Boolean)
+    .map((text) => text.replace(/\s+/g, " ").slice(0, 120))
+
+  return uniqueStrings(textBlocks).slice(0, 8)
+}
+
+const getPreferredValue = (currentValue: string | undefined, candidates: string[], prefix = "") => {
+  const normalizedCurrentValue = currentValue?.trim() || ""
+  const preferredCandidate = candidates.find((candidate) => candidate && candidate !== normalizedCurrentValue)
+
+  if (!preferredCandidate) {
+    return ""
+  }
+
+  return prefix ? `${prefix}${preferredCandidate}` : preferredCandidate
+}
+
+const getMessage = (name: string, substitutions?: string | string[]) =>
+  chrome.i18n.getMessage(name, substitutions) || name
+
+const buildRuleTestDiagnostics = (rule: SearchEngineRule, diagnostics: {
+  urlMatched: boolean
+  containerMatched: boolean
+  queryMatched: boolean
+}) => {
+  const issues: string[] = []
+  const suggestions: string[] = []
+  const queryParamCandidates = sortCandidatesByScore(uniqueStrings(Object.keys(getUrlVars(window.location.href)).slice(0, 10)))
+  const queryInputCandidates = sortCandidatesByScore(
+    uniqueStrings(
+      Array.from(
+        document.querySelectorAll<HTMLInputElement>("input[type='search'], input[name*='q'], input[name*='query'], input[name*='word'], textarea")
+      )
+        .map((input) => {
+          if (input.id) {
+            return `#${input.id}`
+          }
+          if (input.name) {
+            return `${input.tagName.toLowerCase()}[name='${input.name}']`
+          }
+          if (input.placeholder) {
+            return `${input.tagName.toLowerCase()}[placeholder='${input.placeholder}']`
+          }
+          return ""
+        })
+        .slice(0, 10)
+    )
+  )
+  const containerIdCandidates = sortCandidatesByScore(
+    uniqueStrings(
+      Array.from(
+        document.querySelectorAll<HTMLElement>("main, #content, #search, #results, #links, #center_col, #b_results, #content_left, [role='main']")
+      )
+        .map((element) => element.id)
+        .slice(0, 12)
+    )
+  )
+  const containerSelectorCandidates = sortCandidatesByScore(
+    uniqueStrings(
+      Array.from(
+        document.querySelectorAll<HTMLElement>("main, [role='main'], #search-result, #links, #b_results, #center_col, #content_left, .results, .search-results, .serp, .result-list")
+      )
+        .map((element) => {
+          if (element.id) {
+            return `#${element.id}`
+          }
+          const className = element.className
+          if (typeof className === "string" && className.trim()) {
+            return `.${className.trim().split(/\s+/)[0]}`
+          }
+          return element.tagName.toLowerCase()
+        })
+        .slice(0, 12)
+    )
+  )
+
+  if (!diagnostics.urlMatched) {
+    issues.push(getMessage("settingPageSettingSearchGenerateDiagUrlIssue"))
+    suggestions.push(
+      getMessage(
+        "settingPageSettingSearchGenerateDiagUrlSuggestion",
+        window.location.href.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+      )
+    )
+  }
+
+  if (!diagnostics.containerMatched) {
+    issues.push(getMessage("settingPageSettingSearchGenerateDiagContainerIssue"))
+
+    const suggestedSelector = getPreferredValue(rule.containerSelector, containerSelectorCandidates)
+    const suggestedId = getPreferredValue(rule.containerId, containerIdCandidates, "#")
+
+    if (suggestedSelector) {
+      suggestions.push(getMessage("settingPageSettingSearchGenerateDiagContainerSelectorSuggestion", suggestedSelector))
+    } else if (suggestedId) {
+      suggestions.push(getMessage("settingPageSettingSearchGenerateDiagContainerIdSuggestion", suggestedId.slice(1)))
+    } else {
+      suggestions.push(getMessage("settingPageSettingSearchGenerateDiagContainerFallbackSuggestion"))
+    }
+  }
+
+  if (!diagnostics.queryMatched) {
+    issues.push(getMessage("settingPageSettingSearchGenerateDiagQueryIssue"))
+
+    const suggestedQueryParam = getPreferredValue(rule.queryParam, queryParamCandidates)
+    const suggestedQueryInputSelector = getPreferredValue(rule.queryInputSelector, queryInputCandidates)
+
+    if (suggestedQueryParam) {
+      suggestions.push(getMessage("settingPageSettingSearchGenerateDiagQueryParamSuggestion", suggestedQueryParam))
+    } else if (suggestedQueryInputSelector) {
+      suggestions.push(getMessage("settingPageSettingSearchGenerateDiagQuerySelectorSuggestion", suggestedQueryInputSelector))
+    } else {
+      suggestions.push(getMessage("settingPageSettingSearchGenerateDiagQueryFallbackSuggestion"))
+    }
+  }
+
+  return {
+    issues,
+    suggestions
+  }
+}
+
+function getSearchEnginePageContext(): SearchEnginePageContext {
+  const url = window.location.href
+  const title = document.title || ""
+  const vars = getUrlVars(url)
+  const searchInputs = Array.from(
+    document.querySelectorAll<HTMLInputElement>("input[type='search'], input[name*='q'], input[name*='query'], input[name*='word'], textarea")
+  )
+  const queryFromInput = searchInputs.find((input) => input.value?.trim())?.value?.trim() || ""
+  const queryFromUrl = Object.values(vars).find((value) => typeof value === "string" && value.trim()) || ""
+  const query = getQueryWord(currentSearchEngineRule || { urlPattern: "" }) || queryFromInput || queryFromUrl
+
+  const queryParamCandidates = sortCandidatesByScore(uniqueStrings(Object.keys(vars).slice(0, 10)))
+  const queryInputCandidates = sortCandidatesByScore(
+    uniqueStrings(
+      searchInputs
+        .map((input) => {
+          if (input.id) {
+            return `#${input.id}`
+          }
+          if (input.name) {
+            return `${input.tagName.toLowerCase()}[name='${input.name}']`
+          }
+          if (input.placeholder) {
+            return `${input.tagName.toLowerCase()}[placeholder='${input.placeholder}']`
+          }
+          return ""
+        })
+        .slice(0, 10)
+    )
+  )
+
+  const containerIdCandidates = sortCandidatesByScore(
+    uniqueStrings(
+      Array.from(
+        document.querySelectorAll<HTMLElement>("main, #content, #search, #results, #links, #center_col, #b_results, #content_left, [role='main']")
+      )
+        .map((element) => element.id)
+        .slice(0, 12)
+    )
+  )
+
+  const containerSelectorCandidates = sortCandidatesByScore(
+    uniqueStrings(
+      Array.from(
+        document.querySelectorAll<HTMLElement>("main, [role='main'], #search-result, #links, #b_results, #center_col, #content_left, .results, .search-results, .serp, .result-list")
+      )
+        .map((element) => {
+          if (element.id) {
+            return `#${element.id}`
+          }
+          const className = element.className
+          if (typeof className === "string" && className.trim()) {
+            return `.${className.trim().split(/\s+/)[0]}`
+          }
+          return element.tagName.toLowerCase()
+        })
+        .slice(0, 12)
+    )
+  )
+
+  return {
+    url,
+    title,
+    query: typeof query === "string" ? query : "",
+    queryParamCandidates,
+    queryInputCandidates,
+    containerIdCandidates,
+    containerSelectorCandidates,
+    pageTextHints: getPageTextHints()
+  }
+}
+
+function testSearchEngineRule(rule: SearchEngineRule): SearchRuleTestResult {
+  let urlMatched = false
+
+  try {
+    urlMatched = !!rule.urlPattern && new RegExp(rule.urlPattern).test(window.location.href)
+  } catch {
+    return {
+      ok: false,
+      urlMatched: false,
+      containerMatched: false,
+      queryMatched: false,
+      matchedContainer: "",
+      matchedQuery: "",
+      message: "Invalid urlPattern",
+      issues: [getMessage("settingPageSettingSearchGenerateDiagInvalidRegexIssue")],
+      suggestions: [getMessage("settingPageSettingSearchGenerateDiagInvalidRegexSuggestion")]
+    }
+  }
+
+  const container = getResultContainer(rule)
+  const matchedQuery = getQueryWord(rule)
+  const matchedContainer = rule.containerSelector || (container?.id ? `#${container.id}` : rule.containerId || "")
+  const containerMatched = !!container
+  const queryMatched = !!matchedQuery
+  const ok = urlMatched && containerMatched && queryMatched
+  const diagnostics = buildRuleTestDiagnostics(rule, {
+    urlMatched,
+    containerMatched,
+    queryMatched
+  })
+
+  return {
+    ok,
+    urlMatched,
+    containerMatched,
+    queryMatched,
+    matchedContainer,
+    matchedQuery,
+    message: ok ? "Matched" : "Rule did not fully match the current page",
+    issues: diagnostics.issues,
+    suggestions: diagnostics.suggestions
+  }
+}
+
+function insertResult(originContainer: HTMLElement, newElement: HTMLDivElement, rule: SearchEngineRule) {
+  const insertPosition = rule.insertPosition || "prepend"
+
+  switch (insertPosition) {
+    case "append":
+      originContainer.appendChild(newElement)
+      break
+    case "beforebegin":
+      originContainer.insertAdjacentElement("beforebegin", newElement)
+      break
+    case "afterbegin":
+      originContainer.insertAdjacentElement("afterbegin", newElement)
+      break
+    case "beforeend":
+      originContainer.insertAdjacentElement("beforeend", newElement)
+      break
+    case "afterend":
+      originContainer.insertAdjacentElement("afterend", newElement)
+      break
+    default:
+      originContainer.prepend(newElement)
+      break
+  }
+}
+
+function doWork() {
+  if (!currentSearchEngineRule || showSearchResult !== "true" || !resultElement) {
+    return
+  }
+
+  const originContainer = getResultContainer(currentSearchEngineRule)
+  if (!originContainer) {
+    return
+  }
+
+  clearResult()
+  insertResult(originContainer, resultElement, currentSearchEngineRule)
+}
 
 function createResult() {
-  // console.log("createResultelemnent")
-  // mount-point
   const newEl = document.createElement("div")
-  newEl.setAttribute("id", "fulltext-bookmark-mount-point")
-  newEl.style.height = "130px"
-  newEl.style.marginTop = "10px"
-  newEl.style.marginBottom = "15px"
-  newEl.style.zIndex = "10"
+  newEl.id = mountPointId
+  newEl.style.cssText = resultWrapperStyle
 
-  // box
   const box = document.createElement("div")
+  box.style.cssText = resultBoxStyle
   newEl.appendChild(box)
-  box.style.maxHeight = "130px"
-  box.style.borderWidth = "2px"
-  box.style.borderStyle = "solid"
-  // box.style.borderRadius="0.375rem"
-  box.style.setProperty("border-radius", "calc(min(0.375rem,6px))")
-  box.style.borderColor = "#D1D5DB"
-  box.style.display = "flex"
-  box.style.flexDirection = "column"
-  box.style.justifyContent = "flex-start"
-  box.style.setProperty("padding", "calc(min(1rem,16px))")
-  // box.style.padding="1rem"
-  box.style.setProperty("padding-bottom", "calc(min(0.5rem,8px))")
-  box.style.gap = "5px"
 
-  // title
-  const firstChild = document.createElement("span")
-  box.appendChild(firstChild)
-  firstChild.style.setProperty("font-size", "calc(min(1.125rem,18px))")
-  // firstChild.style.fontSize="1.125rem"
-  // firstChild.style.lineHeight="1.75rem"
-  firstChild.style.setProperty("line-height", "calc(min(1.75rem,28px))")
-  firstChild.style.color = "#60a5fa"
-  const urla = document.createElement("a")
-  firstChild.appendChild(urla)
-  urla.href = searchResult?.url
-  urla.target = "_blank"
-  urla.rel = "noopener noreferrer"
-  urla.textContent = truncateText(searchResult?.title, 60)
+  const titleSpan = document.createElement("span")
+  titleSpan.style.cssText = resultTitleStyle
+  box.appendChild(titleSpan)
 
-  // url
-  const secondChild = document.createElement("span")
-  box.appendChild(secondChild)
-  // secondChild.style.fontSize="0.875rem"
-  secondChild.style.setProperty("font-size", "calc(min(0.875rem,14px))")
-  secondChild.style.setProperty("line-height", "calc(min(1.25rem,20px))")
-  // secondChild.style.lineHeight="1.25rem"
-  secondChild.style.color = "black"
-  secondChild.textContent = truncateText(searchResult?.url, 60)
+  const urlLink = document.createElement("a")
+  urlLink.href = searchResult?.url ?? ""
+  urlLink.target = "_blank"
+  urlLink.rel = "noopener noreferrer"
+  urlLink.textContent = truncateText(searchResult?.title, 60)
+  titleSpan.appendChild(urlLink)
 
-  // date
-  const thirdChild = document.createElement("div")
-  box.appendChild(thirdChild)
-  // thirdChild.style.fontSize="0.875rem"
-  // thirdChild.style.lineHeight="1.25rem"
-  thirdChild.style.setProperty("font-size", "calc(min(0.875rem,14px))")
-  thirdChild.style.setProperty("line-height", "calc(min(1.25rem,20px))")
-  thirdChild.style.color = "#6B7280"
-  thirdChild.style.display = "flex"
-  thirdChild.style.flexDirection = "row"
-  thirdChild.style.justifyContent = "space-between"
+  const urlSpan = document.createElement("span")
+  urlSpan.style.cssText = resultTextStyle
+  urlSpan.textContent = truncateText(searchResult?.url, 60)
+  box.appendChild(urlSpan)
+
+  const footer = document.createElement("div")
+  footer.style.cssText = resultFooterStyle
+  box.appendChild(footer)
+
   const dateSpan = document.createElement("span")
-  thirdChild.appendChild(dateSpan)
   dateSpan.textContent = new Date(searchResult?.date).toLocaleDateString()
+  footer.appendChild(dateSpan)
+
   const watermarkSpan = document.createElement("span")
-  thirdChild.appendChild(watermarkSpan)
-  watermarkSpan.textContent = "by fulltext-bookmark"
-  // watermarkSpan.style.fontSize="0.75rem"
-  // watermarkSpan.style.lineHeight="1rem"
-  watermarkSpan.style.setProperty("font-size", "calc(min(0.75rem,12px))")
-  watermarkSpan.style.setProperty("line-height", "calc(min(1rem,16px))")
-  // watermarkSpan.style.paddingTop="1rem"
-  watermarkSpan.style.setProperty("padding-top", "calc(min(1rem,16px))")
-  watermarkSpan.style.color = "#E5E7EB"
+  watermarkSpan.textContent = `by fulltext-bookmark${currentSearchEngineName ? ` · ${currentSearchEngineName}` : ""}`
+  watermarkSpan.style.cssText = resultWatermarkStyle
+  footer.appendChild(watermarkSpan)
+
   return newEl
-  // el.insertBefore(newEl, el.firstChild)
 }
 
 function prepare() {
-  if (!thisURL) {
-    searchFinished = -1
+  resetSearchState()
+  clearResult()
+
+  if (!thisURL || showSearchResult !== "true") {
     return
   }
-  if (showSearchResult !== "true") {
-    searchFinished = -1
+
+  const searchEngineRule = getSearchEngineRule(thisURL, customSearchEngineRules)
+  if (!searchEngineRule) {
     return
   }
-  if (isGoogle(thisURL)) {
-    // console.log("google")
-    rootContainerID = "center_col"
-    queryWordId = "q"
-  } else if (isBing(thisURL)) {
-    // console.log("bing")
-    rootContainerID = "b_results"
-    queryWordId = "q"
-    // TODO:add querywordid
-  } else if (isBaidu(thisURL)) {
-    // console.log("baidu")
-    rootContainerID = "content_left"
-    queryWordId = "wd"
-  } else {
-    // console.log("no match page")
-    searchFinished = -1
+
+  currentSearchEngineRule = searchEngineRule
+  currentSearchEngineName = searchEngineRule.name || "Custom"
+  queryWord = getQueryWord(searchEngineRule)
+
+  if (!queryWord) {
+    return
   }
 
-  if (queryWordId && queryWordId !== "") {
-    queryWord = getUrlVars(thisURL)[queryWordId]
-    // console.log("queryWord:", queryWord)
-  }
+  chrome.runtime
+    .sendMessage({ command: "google_result", search: queryWord })
+    .then((v) => {
+      searchResult = v
+      if (!searchResult || searchResult.ok === false) {
+        return
+      }
 
-  if (queryWord && rootContainerID) {
-    chrome.runtime
-      .sendMessage({ command: "google_result", search: queryWord })
-      .then((v) => {
-        // console.log("google_result message response:", v)
-        searchResult = v
-        if (searchResult && searchResult.ok !== false) {
-          resultElement = createResult()
-          if (document.readyState === "complete") {
-            doWork()
-          } else {
-            document.onreadystatechange = function () {
-              if (document.readyState == "complete") {
-                doWork()
-              }
-            }
-          }
-        } else {
-          searchFinished = -1
-        }
-      })
-  }
+      resultElement = createResult()
+      runWhenDocumentReady(doWork)
+    })
 }
 
-// export const getRootContainer = async () => {
-//   const el = await waitForElements("#fulltext-bookmark-mount-point")
-//   return document.querySelector("#fulltext-bookmark-mount-point")
-// }
-// export const getMountPoint = async () => document.querySelector("#fulltext-bookmark-mount-point")
+const handleLocationChange = debounce(
+  () => {
+    const nextURL = window.location.href
+    if (nextURL === thisURL) {
+      return
+    }
 
-// const SearchResult = () => {
-//   if(!searchResult){
-//     return null
-//   }
-//   return (
-//     <div
-//       className="border-[1px] rounded-md border-gray-300 flex flex-col pr-4 pl-4 pt-4 pb-2 gap-[5px] justify-start">
-//       <span className="text-lg text-blue-400">
-//         <a href={searchResult.url} target="_blank" rel="noopener noreferrer">
-//           {truncateText(searchResult.title, 60)}
-//         </a>
-//       </span>
-//       <span className="text-sm text-black">
-//         <p>{truncateText(searchResult.url, 60)}</p>
-//       </span>
-//       <span className="text-sm text-gray-500 flex flex-row justify-between">
-//         <span>{new Date(searchResult.date).toLocaleDateString()}</span>
-//         <span className="text-gray-200 text-xs pt-4">by fulltext-bookmark</span>
-//       </span>
-//     </div>
-//   )
-// }
+    thisURL = nextURL
+    prepare()
+  },
+  100,
+  { leading: false, trailing: true }
+)
 
-// function createAndInsertResultBox(el) {
-//   const newEl = document.createElement("div")
-//   newEl.setAttribute("id", "fulltext-bookmark-mount-point")
-//   newEl.style.height = "130px"
-//   newEl.style.marginTop = "5px"
-//   newEl.style.marginBottom = "15px"
-//   // newEl.style.display = "none"
-//   el.insertBefore(newEl, el.firstChild)
-// }
+const locationChangeEventName = "fulltext-bookmark-locationchange"
 
-// function createAndInsertEmptyResultBox(el) {
-//   const newEl = document.createElement("div")
-//   newEl.setAttribute("id", "fulltext-bookmark-mount-point")
-//   newEl.style.display = "none"
-//   el.insertBefore(newEl, el.firstChild)
-// }
+type PatchedHistoryMethod = History["pushState"] & {
+  __fulltextBookmarkPatched?: boolean
+}
 
-// export default SearchResult
+const patchHistoryMethod = (method: "pushState" | "replaceState") => {
+  const originalMethod = window.history[method] as PatchedHistoryMethod
+  if (originalMethod.__fulltextBookmarkPatched) {
+    return
+  }
+
+  const patchedMethod: PatchedHistoryMethod = function (...args) {
+    const result = originalMethod.apply(window.history, args)
+    window.dispatchEvent(new Event(locationChangeEventName))
+    return result
+  }
+
+  patchedMethod.__fulltextBookmarkPatched = true
+  window.history[method] = patchedMethod
+}
+
+const observeLocationChanges = () => {
+  patchHistoryMethod("pushState")
+  patchHistoryMethod("replaceState")
+
+  window.addEventListener(locationChangeEventName, handleLocationChange)
+  window.addEventListener("popstate", handleLocationChange)
+  window.addEventListener("hashchange", handleLocationChange)
+}
+
+chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+  if (message.command === "collect_search_engine_context") {
+    sendResponse(getSearchEnginePageContext())
+    return true
+  }
+
+  if (message.command === "test_search_engine_rule") {
+    sendResponse(testSearchEngineRule(message.rule))
+    return true
+  }
+
+  return false
+})
+
+chrome.storage.local.get([`persist:${storageKey}`], (items) => {
+  if (items[`persist:${storageKey}`]) {
+    const rootParsed = JSON.parse(items[`persist:${storageKey}`])
+    showSearchResult = rootParsed?.searchEngineAdaption
+    customSearchEngineRules = parseCustomSearchEngines(rootParsed?.customSearchEngines || "")
+  }
+
+  prepare()
+
+  if (showSearchResult === "true") {
+    observeLocationChanges()
+  }
+})
