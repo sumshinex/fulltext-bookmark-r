@@ -1,63 +1,95 @@
-import React, { createRef, useEffect, useState } from "react";
-import type { IGPTAnswer } from "~lib/interface";
-import { truncateText } from "~lib/utils";
-import {
-  AppStat,
-  setGPTAnswer,
-  setGPTQuery,
-  setGPTLoading,
-} from "~store/stat-slice";
-import { useDispatch, useSelector } from "react-redux";
+import React, { createRef, useEffect, useMemo, useState } from "react"
+import type { IGPTAnswer } from "~lib/interface"
+import { truncateText } from "~lib/utils"
+import { AppStat, setGPTAnswer, setGPTQuery, setGPTLoading } from "~store/stat-slice"
+import { resolveEndpointBinding } from "~lib/chat"
+import { useDispatch, useSelector } from "react-redux"
 import "~style.css"
 
 const GPTSearch = () => {
-  const dispatch = useDispatch();
-  const ExistedGPTAnswer = useSelector((state: AppStat) => state.GPTAnswer);
-  const GPTQuery = useSelector((state: AppStat) => state.GPTQuery);
-  const GPTLoading = useSelector((state: AppStat) => state.GPTLoading);
-  const GPTKey = useSelector((state: AppStat) => state.GPTKey);
-  const GPTURL = useSelector((state: AppStat) => state.GPTURL);
-  const GPTChatModel = useSelector((state: AppStat) => state.GPTChatModel);
-  const GPTEmbeddingModel = useSelector((state: AppStat) => state.GPTEmbeddingModel);
-  const GPTPromptTemplate = useSelector((state: AppStat) => state.GPTPromptTemplate);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [searchResult, setSearchResult] =
-    useState<IGPTAnswer>(ExistedGPTAnswer);
-  const [isLoading, setIsLoading] = useState(GPTLoading);
+  const dispatch = useDispatch()
+  const ExistedGPTAnswer = useSelector((state: AppStat) => state.GPTAnswer)
+  const GPTQuery = useSelector((state: AppStat) => state.GPTQuery)
+  const GPTLoading = useSelector((state: AppStat) => state.GPTLoading)
+  const showAskGPT = useSelector((state: AppStat) => state.showAskGPT)
+  const gptEndpoints = useSelector((state: AppStat) => state.gptEndpoints)
+  const gptBindings = useSelector((state: AppStat) => state.gptBindings)
+  const gptDefaultModels = useSelector((state: AppStat) => state.gptDefaultModels)
+  const gptPromptTemplate = useSelector((state: AppStat) => state.gptPromptTemplate)
+  const [searchTerm, setSearchTerm] = useState("")
+  const [searchResult, setSearchResult] = useState<IGPTAnswer>(ExistedGPTAnswer)
+  const [isLoading, setIsLoading] = useState(GPTLoading)
+
+  const bindingStatus = useMemo(() => {
+    const chatResolution = resolveEndpointBinding({
+      capability: "chat",
+      endpoints: gptEndpoints,
+      bindings: gptBindings,
+      defaultModels: gptDefaultModels,
+    })
+    const embeddingResolution = resolveEndpointBinding({
+      capability: "embedding",
+      endpoints: gptEndpoints,
+      bindings: gptBindings,
+      defaultModels: gptDefaultModels,
+    })
+
+    return {
+      hasChat: chatResolution.availableEndpoints.length > 0,
+      hasEmbedding: embeddingResolution.availableEndpoints.length > 0,
+      configurationErrors: [
+        ...chatResolution.configurationErrors,
+        ...embeddingResolution.configurationErrors,
+      ],
+    }
+  }, [gptBindings, gptDefaultModels, gptEndpoints])
 
   const handleSearchInputChange = (e) => {
-    setSearchTerm(e.target.value);
-  };
+    setSearchTerm(e.target.value)
+  }
 
   const handleSearch = async () => {
-    if(!GPTKey || !GPTURL || !GPTChatModel || !GPTEmbeddingModel) {
-      const missingConfigMessage = chrome.i18n.getMessage("gptFirst")
+    if (!showAskGPT) {
+      return
+    }
+
+    if (
+      !bindingStatus.hasChat ||
+      !bindingStatus.hasEmbedding ||
+      !gptDefaultModels.chat ||
+      !gptDefaultModels.embedding ||
+      !gptPromptTemplate
+    ) {
+      const missingConfigMessage =
+        bindingStatus.configurationErrors[0] ||
+        chrome.i18n.getMessage("gptBindingUnavailable", [
+          !bindingStatus.hasChat
+            ? chrome.i18n.getMessage("settingPageSettingGPTCapabilityChat")
+            : chrome.i18n.getMessage("settingPageSettingGPTCapabilityEmbedding"),
+        ])
       dispatch(setGPTQuery(missingConfigMessage))
       setSearchResult({ answer: missingConfigMessage, sources: null })
       return
     }
-    if (searchTerm === "" || searchTerm == " ") {
-      return;
+
+    if (searchTerm.trim() === "") {
+      return
     }
-    setIsLoading(true);
-    dispatch(setGPTLoading(true));
-    dispatch(setGPTQuery(searchTerm));
-    dispatch(setGPTAnswer(null));
+
+    setIsLoading(true)
+    dispatch(setGPTLoading(true))
+    dispatch(setGPTQuery(searchTerm))
+    dispatch(setGPTAnswer(null))
     chrome.runtime
       .sendMessage({
-        command: "gptsearch",
+        command: "gpt_search",
         search: searchTerm,
-        key: GPTKey,
-        url: GPTURL,
-        chatModel: GPTChatModel,
-        embeddingModel: GPTEmbeddingModel,
-        promptTemplate: GPTPromptTemplate
       })
       .then((v) => {
-        setSearchResult(v);
-        dispatch(setGPTAnswer(v));
-        setIsLoading(false);
-        dispatch(setGPTLoading(false));
+        setSearchResult(v)
+        dispatch(setGPTAnswer(v))
+        setIsLoading(false)
+        dispatch(setGPTLoading(false))
       })
       .catch((error) => {
         const answer = error?.message || chrome.i18n.getMessage("popupAskRequestFailed")
@@ -66,13 +98,13 @@ const GPTSearch = () => {
         dispatch(setGPTAnswer(errorResult))
         setIsLoading(false)
         dispatch(setGPTLoading(false))
-      });
-  };
+      })
+  }
 
-  const searchinputRef = createRef<any>();
+  const searchinputRef = createRef<any>()
   useEffect(() => {
-    searchinputRef.current.focus();
-  }, []);
+    searchinputRef.current.focus()
+  }, [])
 
   return (
     <div className="w-96 p-4 gap-4 h-[32rem] flex flex-col overflow-hidden">
@@ -85,15 +117,14 @@ const GPTSearch = () => {
           onChange={handleSearchInputChange}
           onKeyPress={(e) => {
             if (e.key === "Enter") {
-              handleSearch();
+              handleSearch()
             }
           }}
           className="w-full h-10 px-4 pr-14 rounded-lg shadow-md"
         />
         <button
           className="absolute right-0 top-0 h-10 px-4 bg-blue-500 text-white rounded-r-lg"
-          onClick={handleSearch}
-        >
+          onClick={handleSearch}>
           Ask
         </button>
       </div>
@@ -107,21 +138,18 @@ const GPTSearch = () => {
                   className="animate-spin -ml-1 mr-3 h-5 w-5 text-blue-500"
                   xmlns="http://www.w3.org/2000/svg"
                   fill="none"
-                  viewBox="0 0 24 24"
-                >
+                  viewBox="0 0 24 24">
                   <circle
                     className="opacity-25"
                     cx="12"
                     cy="12"
                     r="10"
                     stroke="currentColor"
-                    strokeWidth="4"
-                  ></circle>
+                    strokeWidth="4"></circle>
                   <path
                     className="opacity-75"
                     fill="currentColor"
-                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647zM12 20.735A7.962 7.962 0 0112 12v-4.735l-3 2.646v4.736a7.962 7.962 0 013 2.647zM17 12a5 5 0 11-10 0 5 5 0 0110 0z"
-                  ></path>
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647zM12 20.735A7.962 7.962 0 0112 12v-4.735l-3 2.646v4.736a7.962 7.962 0 013 2.647zM17 12a5 5 0 11-10 0 5 5 0 0110 0z"></path>
                 </svg>
               </div>
             ) : null}
@@ -132,17 +160,14 @@ const GPTSearch = () => {
         <div className="flex flex-col gap-4 p-2 overflow-y-auto overflow-x-hidden">
           <div className="font-bold">{chrome.i18n.getMessage("popupAskAnswerFrom")}</div>
           <div className="shadow-md p-4 text-large whitespace-pre-line">
-            <div className="mb-2 whitespace-pre-wrap break-all">
-              {searchResult?.answer}
-            </div>
+            <div className="mb-2 whitespace-pre-wrap break-all">{searchResult?.answer}</div>
 
             <div className="flex justify-end">
               <span
                 className="hover:text-blue-700 text-blue-500 font-bold py-1 px-2 rounded text-sm cursor-pointer"
                 onClick={() => {
-                  navigator.clipboard.writeText(searchResult?.answer);
-                }}
-              >
+                  navigator.clipboard.writeText(searchResult?.answer)
+                }}>
                 {chrome.i18n.getMessage("popupAskAnswerCopy")}
               </span>
             </div>
@@ -154,28 +179,22 @@ const GPTSearch = () => {
           {searchResult.sources
             ? searchResult.sources.map((v, index) => {
                 return (
-                  <div
-                    className="text-blue-500 rounded shadow-md p-4"
-                    key={index}
-                  >
+                  <div className="text-blue-500 rounded shadow-md p-4" key={index}>
                     <a
                       title={chrome.i18n.getMessage("popupLinkTitle")}
                       href={v.url}
                       onClick={() => {
-                        chrome.tabs.create({ url: v.url, active: false });
-                      }}
-                    >
+                        chrome.tabs.create({ url: v.url, active: false })
+                      }}>
                       {truncateText(v.title, 100)}
                     </a>
                     {v.isBookmarked && <i className="ml-2">⭐</i>}
-                    <p className="text-md text-gray-300">
-                      {truncateText(v.url, 40)}
-                    </p>
+                    <p className="text-md text-gray-300">{truncateText(v.url, 40)}</p>
                     <p className="text-sm text-gray-300">
                       {new Date(v.date).toLocaleDateString()}
                     </p>
                   </div>
-                );
+                )
               })
             : null}
         </div>
@@ -183,7 +202,7 @@ const GPTSearch = () => {
         <div></div>
       )}
     </div>
-  );
-};
+  )
+}
 
-export default GPTSearch;
+export default GPTSearch

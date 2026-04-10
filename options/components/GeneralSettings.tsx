@@ -22,9 +22,6 @@ interface GeneralSettingsProps {
   tempMaxResults: string | number
   tempCustomSearchEngines: string
   customSearchEnginesError: string
-  tempGPTKey: string
-  tempGPTUrl: string
-  tempGPTChatModel: string
   handleMaxResultsChange: (e: React.ChangeEvent<HTMLInputElement>) => void
   handleMaxResultsSubmit: () => void
   handleCustomSearchEnginesChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void
@@ -42,9 +39,6 @@ export const GeneralSettings = memo(({
   tempMaxResults,
   tempCustomSearchEngines,
   customSearchEnginesError,
-  tempGPTKey,
-  tempGPTUrl,
-  tempGPTChatModel,
   handleMaxResultsChange,
   handleMaxResultsSubmit,
   handleCustomSearchEnginesChange,
@@ -84,11 +78,6 @@ export const GeneralSettings = memo(({
   }
 
   const handleGenerateRule = async () => {
-    if (!tempGPTUrl || !tempGPTKey || !tempGPTChatModel) {
-      setGenerateResult(chrome.i18n.getMessage("settingPageSettingGPTMissingConfig"))
-      return
-    }
-
     setGenerateLoading(true)
     setGenerateResult("")
     try {
@@ -98,9 +87,9 @@ export const GeneralSettings = memo(({
         return
       }
 
-      const pageContext = await chrome.tabs.sendMessage(activeTab.id, {
+      const pageContext = (await chrome.tabs.sendMessage(activeTab.id, {
         command: "collect_search_engine_context"
-      })
+      })) as unknown as { url?: string }
 
       if (!pageContext?.url) {
         setGenerateResult(chrome.i18n.getMessage("settingPageSettingSearchGenerateContextError"))
@@ -109,10 +98,7 @@ export const GeneralSettings = memo(({
 
       const response = await chrome.runtime.sendMessage({
         command: "generate_search_engine_rule",
-        context: pageContext,
-        key: tempGPTKey,
-        url: tempGPTUrl,
-        chatModel: tempGPTChatModel
+        context: pageContext
       })
 
       if (!response?.ok || !response?.rule) {
@@ -194,10 +180,10 @@ export const GeneralSettings = memo(({
       }
 
       const rule = JSON.parse(generatedRuleText)
-      const response = await chrome.tabs.sendMessage(activeTab.id, {
+      const response = (await chrome.tabs.sendMessage(activeTab.id, {
         command: "test_search_engine_rule",
         rule
-      })
+      })) as unknown as RuleTestResponse | undefined
 
       if (!response) {
         setGenerateResult(chrome.i18n.getMessage("settingPageSettingSearchGenerateTestUnavailable"))

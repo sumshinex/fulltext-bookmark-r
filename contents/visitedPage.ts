@@ -130,7 +130,7 @@ function parsePage() {
     return fallbackArticle
   }
 
-  const documentClone = document.cloneNode(true)
+  const documentClone = document.cloneNode(true) as Document
   if (isProbablyReaderable(documentClone)) {
     const readableArticle = new Readability(documentClone as Document).parse()
     if (readableArticle) {

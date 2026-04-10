@@ -5,7 +5,16 @@ export {};
 import Dexie from "dexie";
 
 import "dexie-export-import";
-import { chat, chatWithRefs, fetchAvailableModels, genEmbedding, initApi } from "~lib/chat";
+import {
+  chat,
+  chatWithRefs,
+  executeWithEndpointFallback,
+  fetchAvailableModels,
+  genEmbedding,
+  initApi,
+  resolveEndpointBinding,
+  resolveModelForEndpoint,
+} from "~lib/chat";
 import { v4 as uuidv4 } from "uuid";
 import debounce from "~lib/debounce";
 // @ts-ignore
@@ -32,6 +41,8 @@ import {
   setGPTAnswer,
   setGPTLoading,
   setGPTQuery,
+  type AppStat,
+  type EndpointCapability,
 } from "~store/stat-slice";
 // import {index as voyIndex, search as voySearch} from "@src/lib/voy/voy_search"
 // import reloadOnUpdate from "virtual:reload-on-update-in-background-script";
@@ -125,7 +136,10 @@ interface Message {
 function normalizeSearchEnginePageContext(context: Partial<SearchEnginePageContext>): SearchEnginePageContext {
   const toStringArray = (value: unknown) =>
     Array.isArray(value)
-      ? value.filter((item): item is string => typeof item === "string" && item.trim()).slice(0, 10)
+      ? value.filter(
+          (item): item is string =>
+            typeof item === "string" && item.trim().length > 0
+        ).slice(0, 10)
       : []
 
   return {
@@ -177,25 +191,112 @@ function buildSearchEngineRulePrompt(context: SearchEnginePageContext): string {
   ].join("\n");
 }
 
-async function generateSearchEngineRule(context: SearchEnginePageContext, config: {
-  key: string;
-  url: string;
-  chatModel: string;
-}) {
+async function runWithCapabilityEndpoint<T>(
+  capability: EndpointCapability,
+  executor: (config: {
+    endpointId: string;
+    endpointName: string;
+    apiKey: string;
+    baseUrl: string;
+    chatModel: string;
+    embeddingModel: string;
+    promptTemplate: string;
+  }) => Promise<T>
+) {
+  const state = store.getState() as AppStat
+
+  return executeWithEndpointFallback(
+    {
+      capability,
+      endpoints: state.gptEndpoints,
+      bindings: state.gptBindings,
+      defaultModels: state.gptDefaultModels,
+    },
+    async ({ endpoint, model }) => {
+      const config = {
+        endpointId: endpoint.id,
+        endpointName: endpoint.name,
+        apiKey: endpoint.apiKey,
+        baseUrl: endpoint.baseUrl,
+        chatModel:
+          capability === "chat"
+            ? model
+            : resolveModelForEndpoint(endpoint, "chat", state.gptDefaultModels),
+        embeddingModel:
+          capability === "embedding"
+            ? model
+            : resolveModelForEndpoint(endpoint, "embedding", state.gptDefaultModels),
+        promptTemplate: state.gptPromptTemplate,
+      }
+
+      initApi(config.apiKey, config.baseUrl, {
+        chatModel: config.chatModel,
+        embeddingModel: config.embeddingModel,
+        promptTemplate: config.promptTemplate,
+      })
+
+      return executor(config)
+    }
+  )
+}
+
+async function fetchModelsFromCapabilityBinding(capability: EndpointCapability) {
+  const state = store.getState() as AppStat
+  const resolution = resolveEndpointBinding({
+    capability,
+    endpoints: state.gptEndpoints,
+    bindings: state.gptBindings,
+    defaultModels: state.gptDefaultModels,
+  })
+
+  if (resolution.availableEndpoints.length === 0) {
+    throw new Error(
+      resolution.configurationErrors[0] ||
+        chrome.i18n.getMessage("gptBindingUnavailable", capability)
+    )
+  }
+
+  const mergedModels = new Set<string>()
+  const failures: { endpointName: string; reason: string }[] = []
+
+  for (const { endpoint } of resolution.availableEndpoints) {
+    try {
+      const models = await fetchAvailableModels(endpoint.apiKey, endpoint.baseUrl)
+      models.forEach((model) => mergedModels.add(model))
+    } catch (error) {
+      failures.push({
+        endpointName: endpoint.name,
+        reason: error instanceof Error ? error.message : String(error),
+      })
+    }
+  }
+
+  return {
+    models: Array.from(mergedModels),
+    failures,
+    configurationErrors: resolution.configurationErrors,
+  }
+}
+
+async function generateEmbeddingWithBinding(message: string) {
+  return runWithCapabilityEndpoint("embedding", async () => genEmbedding(message))
+}
+
+async function generateChatWithRefs(message: string, sources) {
+  return runWithCapabilityEndpoint("chat", async () =>
+    chatWithRefs(message, sources)
+  )
+}
+
+async function generateSearchEngineRule(context: SearchEnginePageContext) {
   const pageContext = normalizeSearchEnginePageContext(context);
   if (!pageContext.url) {
-    throw new Error("Missing page context");
+    throw new Error(chrome.i18n.getMessage("gptMissingPageContext"));
   }
 
-  if (!config.key || !config.url || !config.chatModel) {
-    throw new Error("Missing GPT configuration");
-  }
-
-  initApi(config.key, config.url, {
-    chatModel: config.chatModel,
+  const response = await runWithCapabilityEndpoint("chat", async () => {
+    return chat(buildSearchEngineRulePrompt(pageContext));
   });
-
-  const response = await chat(buildSearchEngineRulePrompt(pageContext));
   const jsonText = extractJsonObject(response);
   const rule = JSON.parse(jsonText);
   const validationError = validateCustomSearchEngines(JSON.stringify([rule]));
@@ -327,45 +428,147 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       })();
       return true;
     case "gptsearch":
+    case "gpt_search":
       (async () => {
-        store.dispatch(setGPTLoading(true));
-        store.dispatch(setGPTAnswer(null));
-        store.dispatch(setGPTQuery(message.search));
-        const apikey = message.key || userOps.GPTKey;
-        const apiBaseUrl = message.url || userOps.GPTURL;
-        const chatModel = message.chatModel || userOps.GPTChatModel;
-        const embeddingModel = message.embeddingModel || userOps.GPTEmbeddingModel;
-        const promptTemplate = message.promptTemplate || userOps.GPTPromptTemplate;
-
-        initApi(apikey, apiBaseUrl, {
-          chatModel,
-          embeddingModel,
-          promptTemplate,
-        });
-        const result = await searchStringGPT(message.search);
-        store.dispatch(setGPTAnswer(result));
-        store.dispatch(setGPTLoading(false));
-        // console.log("search result", result)
-        sendResponse(result);
+        try {
+          store.dispatch(setGPTLoading(true));
+          store.dispatch(setGPTAnswer(null));
+          store.dispatch(setGPTQuery(message.search));
+          const result = await searchStringGPT(message.search);
+          store.dispatch(setGPTAnswer(result));
+          sendResponse(result);
+        } catch (error) {
+          const answer = error instanceof Error ? error.message : String(error);
+          const errorResult = { answer, sources: null };
+          store.dispatch(setGPTAnswer(errorResult));
+          sendResponse(errorResult);
+        } finally {
+          store.dispatch(setGPTLoading(false));
+        }
       })();
       return true;
     case "gpt_models":
+    case "gpt_fetch_binding_models":
       (async () => {
         try {
-          const apikey = message.key || userOps.GPTKey;
-          const apiBaseUrl = message.url || userOps.GPTURL;
-          initApi(apikey, apiBaseUrl, {
-            chatModel: userOps.GPTChatModel,
-            embeddingModel: userOps.GPTEmbeddingModel,
-            promptTemplate: userOps.GPTPromptTemplate,
-          });
-          const models = await fetchAvailableModels(apikey, apiBaseUrl);
-          sendResponse({ ok: true, models });
+          const capability = message.capability === "embedding" ? "embedding" : "chat";
+          const result = await fetchModelsFromCapabilityBinding(capability);
+          sendResponse({ ok: true, ...result });
         } catch (error) {
           sendResponse({
             ok: false,
-            error: error.message || "Failed to fetch models",
+            error: error instanceof Error ? error.message : chrome.i18n.getMessage("gptBackgroundFetchModelsFailed"),
             models: [],
+            failures: [],
+            configurationErrors: [],
+          });
+        }
+      })();
+      return true;
+    case "gpt_fetch_endpoint_models":
+      (async () => {
+        try {
+          if (!message.endpointId) {
+            throw new Error(chrome.i18n.getMessage("gptMissingEndpointId"));
+          }
+          const state = store.getState() as AppStat;
+          const endpoint = state.gptEndpoints.find((item) => item.id === message.endpointId);
+          if (!endpoint) {
+            throw new Error(`Endpoint \"${message.endpointId}\" does not exist`);
+          }
+          if (!endpoint.baseUrl?.trim()) {
+            throw new Error(`Endpoint \"${endpoint.name}\" is missing base URL`);
+          }
+          if (!endpoint.apiKey?.trim()) {
+            throw new Error(`Endpoint \"${endpoint.name}\" is missing API key`);
+          }
+          const models = await fetchAvailableModels(endpoint.apiKey, endpoint.baseUrl);
+          sendResponse({ ok: true, models, endpointId: endpoint.id });
+        } catch (error) {
+          sendResponse({
+            ok: false,
+            error: error instanceof Error ? error.message : chrome.i18n.getMessage("gptBackgroundFetchModelsFailed"),
+            models: [],
+          });
+        }
+      })();
+      return true;
+    case "gpt_test_endpoint":
+      (async () => {
+        try {
+          if (!message.endpointId) {
+            throw new Error(chrome.i18n.getMessage("gptMissingEndpointId"));
+          }
+          const capability = message.capability === "embedding" ? "embedding" : "chat";
+          const state = store.getState() as AppStat;
+          const endpoint = state.gptEndpoints.find((item) => item.id === message.endpointId);
+          if (!endpoint) {
+            throw new Error(`Endpoint \"${message.endpointId}\" does not exist`);
+          }
+          if (!endpoint.capabilities.includes(capability)) {
+            throw new Error(`Endpoint \"${endpoint.name}\" does not support ${capability}`);
+          }
+          if (!endpoint.baseUrl?.trim()) {
+            throw new Error(`Endpoint \"${endpoint.name}\" is missing base URL`);
+          }
+          if (!endpoint.apiKey?.trim()) {
+            throw new Error(`Endpoint \"${endpoint.name}\" is missing API key`);
+          }
+
+          const chatModel = resolveModelForEndpoint(endpoint, "chat", state.gptDefaultModels);
+          const embeddingModel = resolveModelForEndpoint(endpoint, "embedding", state.gptDefaultModels);
+
+          initApi(endpoint.apiKey, endpoint.baseUrl, {
+            chatModel,
+            embeddingModel,
+            promptTemplate: state.gptPromptTemplate,
+          });
+
+          if (capability === "chat") {
+            const result = await chat("Say hello");
+            sendResponse({ ok: true, endpointId: endpoint.id, model: chatModel, result });
+            return;
+          }
+
+          await genEmbedding("hello");
+          sendResponse({ ok: true, endpointId: endpoint.id, model: embeddingModel });
+        } catch (error) {
+          sendResponse({
+            ok: false,
+            error: error instanceof Error ? error.message : chrome.i18n.getMessage("gptBackgroundTestEndpointFailed"),
+          });
+        }
+      })();
+      return true;
+    case "gpt_test_binding":
+      (async () => {
+        try {
+          const capability = message.capability === "embedding" ? "embedding" : "chat";
+          const result = await runWithCapabilityEndpoint(capability, async (config) => {
+            if (capability === "chat") {
+              const reply = await chat("Say hello");
+              return {
+                ok: true,
+                endpointId: config.endpointId,
+                endpointName: config.endpointName,
+                model: config.chatModel,
+                result: reply,
+              };
+            }
+
+            await generateEmbeddingWithBinding("hello");
+            return {
+              ok: true,
+              endpointId: config.endpointId,
+              endpointName: config.endpointName,
+              model: config.embeddingModel,
+            };
+          });
+          sendResponse(result);
+        } catch (error) {
+          sendResponse({
+            ok: false,
+            error: error instanceof Error ? error.message : chrome.i18n.getMessage("gptBackgroundTestBindingFailed"),
           });
         }
       })();
@@ -373,16 +576,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     case "generate_search_engine_rule":
       (async () => {
         try {
-          const rule = await generateSearchEngineRule(message.context, {
-            key: message.key || userOps.GPTKey,
-            url: message.url || userOps.GPTURL,
-            chatModel: message.chatModel || userOps.GPTChatModel,
-          });
+          const rule = await generateSearchEngineRule(message.context);
           sendResponse({ ok: true, rule });
         } catch (error) {
           sendResponse({
             ok: false,
-            error: error.message || "Failed to generate rule",
+            error: error instanceof Error ? error.message : chrome.i18n.getMessage("gptBackgroundGenerateRuleFailed"),
           });
         }
       })();
@@ -731,7 +930,7 @@ async function getEmbedding(a) {
   }
 
   const newVecs = await Promise.all(
-    docs.map((d) => genEmbedding(d.pageContent))
+    docs.map((d) => generateEmbeddingWithBinding(d.pageContent))
   );
 
   // @ts-ignore
@@ -801,7 +1000,7 @@ async function searchStringGPT(search: string): Promise<IGPTAnswer> {
 
   let queryVector;
   try {
-    queryVector = await genEmbedding(search);
+    queryVector = await generateEmbeddingWithBinding(search);
   } catch (error) {
     return { answer: error.message, sources: null };
   }
@@ -841,7 +1040,7 @@ async function searchStringGPT(search: string): Promise<IGPTAnswer> {
 
   let answerString;
   try {
-    answerString = await chatWithRefs(search, [
+    answerString = await generateChatWithRefs(search, [
       { content: nearestDoc.pageContent, source: nearestDoc.metadata.url },
     ]);
   } catch (error) {
@@ -857,12 +1056,12 @@ async function searchString(search: string, type: string) {
     return [];
   }
 
-  const titleResult = await findAndSort(splitSearch, "titleWords");
+  const titleResult = await findAndSort(splitSearch, "titleWords", false);
   if (titleResult && titleResult.length > 0 && type === "short") {
     return titleResult;
   }
 
-  const wordResult = await findAndSort(splitSearch, "contentWords");
+  const wordResult = await findAndSort(splitSearch, "contentWords", false);
   if (titleResult && titleResult.length > 0) {
     if (wordResult && wordResult.length > 0) {
       const dedupedResults = [];

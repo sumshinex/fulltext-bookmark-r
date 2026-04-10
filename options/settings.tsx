@@ -23,25 +23,19 @@ export const SettingView = () => {
     remoteStoreURL,
     remoteStoreEveryPage,
     showAskGPT,
-    GPTKey,
-    GPTUrl,
-    GPTChatModel,
-    GPTEmbeddingModel,
-    GPTPromptTemplate,
-    GPTAvailableModels,
+    gptEndpoints,
+    gptBindings,
+    gptDefaultModels,
+    gptPromptTemplate,
+    gptAvailableModelsByEndpoint,
     tempMaxResults,
     tempPageExpireTimeInDays,
     tempForbiddenURLs,
     tempCustomSearchEngines,
     customSearchEnginesError,
     tempRemoteStoreURL,
-    tempGPTKey,
-    tempGPTUrl,
-    tempGPTChatModel,
-    applyCustomSearchEngines,
-    tempGPTEmbeddingModel,
-    tempGPTPromptTemplate,
     navPage,
+    applyCustomSearchEngines,
     handleMaxResultsChange,
     handleMaxResultsSubmit,
     handlePageExpireTimeChange,
@@ -52,17 +46,14 @@ export const SettingView = () => {
     handleBlurCustomSearchEngines,
     handleRemoteStoreURLChange,
     handleBlurRemoteStoreURL,
-    handleGPTKeyChange,
-    handleGPTUrlChange,
-    handleBlurGPTKey,
-    handleBlurGPTUrl,
-    handleGPTChatModelChange,
-    handleBlurGPTChatModel,
-    handleGPTEmbeddingModelChange,
-    handleBlurGPTEmbeddingModel,
-    handleGPTPromptTemplateChange,
-    handleBlurGPTPromptTemplate,
-    handleGPTAvailableModelsChange,
+    handleAddGptEndpoint,
+    handleUpdateGptEndpoint,
+    handleRemoveGptEndpoint,
+    handleToggleGptEndpointEnabled,
+    handleSetGptBindings,
+    handleSetGptDefaultModels,
+    handleSetGptPromptTemplate,
+    handleSetAvailableModelsForEndpoint,
     setNavPage,
     toggleSearchEngineAdaption,
     toggleWeiboSupport,
@@ -71,7 +62,7 @@ export const SettingView = () => {
     toggleBookmarkAdaption,
     toggleShowAskGPT,
     toggleRemoteStore,
-    toggleRemoteStoreEveryPage
+    toggleRemoteStoreEveryPage,
   } = useSettingsState()
 
   const [storeSize, setStoreSize] = useState({ quota: "0", usage: "0" })
@@ -129,9 +120,6 @@ export const SettingView = () => {
       tempMaxResults,
       tempCustomSearchEngines,
       customSearchEnginesError,
-      tempGPTKey,
-      tempGPTUrl,
-      tempGPTChatModel,
       handleMaxResultsChange,
       handleMaxResultsSubmit,
       handleCustomSearchEnginesChange,
@@ -139,7 +127,7 @@ export const SettingView = () => {
       applyCustomSearchEngines,
       onToggleSearchEngineAdaption: handleToggleSearchEngineAdaption,
       onToggleWeiboSupport: handleToggleWeiboSupport,
-      onToggleShowOnlyBookmarkedResults: handleToggleShowOnlyBookmarkedResults
+      onToggleShowOnlyBookmarkedResults: handleToggleShowOnlyBookmarkedResults,
     }),
     [
       searchEngineAdaption,
@@ -148,9 +136,7 @@ export const SettingView = () => {
       tempMaxResults,
       tempCustomSearchEngines,
       customSearchEnginesError,
-      tempGPTKey,
-      tempGPTUrl,
-      tempGPTChatModel,
+      gptDefaultModels.chat,
       handleMaxResultsChange,
       handleMaxResultsSubmit,
       handleCustomSearchEnginesChange,
@@ -158,7 +144,7 @@ export const SettingView = () => {
       applyCustomSearchEngines,
       handleToggleSearchEngineAdaption,
       handleToggleWeiboSupport,
-      handleToggleShowOnlyBookmarkedResults
+      handleToggleShowOnlyBookmarkedResults,
     ]
   )
 
@@ -175,7 +161,7 @@ export const SettingView = () => {
       handleForbiddenURLsChange,
       handleBlurForbiddenURLs,
       onToggleStoreEveryPage: handleToggleStoreEveryPage,
-      onToggleBookmarkAdaption: handleToggleBookmarkAdaption
+      onToggleBookmarkAdaption: handleToggleBookmarkAdaption,
     }),
     [
       storeEveryPage,
@@ -188,7 +174,7 @@ export const SettingView = () => {
       handleForbiddenURLsChange,
       handleBlurForbiddenURLs,
       handleToggleStoreEveryPage,
-      handleToggleBookmarkAdaption
+      handleToggleBookmarkAdaption,
     ]
   )
 
@@ -201,7 +187,7 @@ export const SettingView = () => {
       handleRemoteStoreURLChange,
       handleBlurRemoteStoreURL,
       onToggleRemoteStore: handleToggleRemoteStore,
-      onToggleRemoteStoreEveryPage: handleToggleRemoteStoreEveryPage
+      onToggleRemoteStoreEveryPage: handleToggleRemoteStoreEveryPage,
     }),
     [
       remoteStore,
@@ -211,73 +197,55 @@ export const SettingView = () => {
       handleRemoteStoreURLChange,
       handleBlurRemoteStoreURL,
       handleToggleRemoteStore,
-      handleToggleRemoteStoreEveryPage
+      handleToggleRemoteStoreEveryPage,
     ]
   )
 
   const gptSettingsProps = useMemo(
     () => ({
       showAskGPT,
-      GPTKey,
-      GPTUrl,
-      GPTChatModel,
-      GPTEmbeddingModel,
-      GPTPromptTemplate,
-      GPTAvailableModels,
-      tempGPTKey,
-      tempGPTUrl,
-      tempGPTChatModel,
-      tempGPTEmbeddingModel,
-      tempGPTPromptTemplate,
-      handleGPTKeyChange,
-      handleGPTUrlChange,
-      handleBlurGPTKey,
-      handleBlurGPTUrl,
-      handleGPTChatModelChange,
-      handleBlurGPTChatModel,
-      handleGPTEmbeddingModelChange,
-      handleBlurGPTEmbeddingModel,
-      handleGPTPromptTemplateChange,
-      handleBlurGPTPromptTemplate,
-      handleGPTAvailableModelsChange,
-      onToggleShowAskGPT: handleToggleShowAskGPT
+      gptEndpoints,
+      gptBindings,
+      gptDefaultModels,
+      gptPromptTemplate,
+      gptAvailableModelsByEndpoint,
+      handleAddGptEndpoint,
+      handleUpdateGptEndpoint,
+      handleRemoveGptEndpoint,
+      handleToggleGptEndpointEnabled,
+      handleSetGptBindings,
+      handleSetGptDefaultModels,
+      handleSetGptPromptTemplate,
+      handleSetAvailableModelsForEndpoint,
+      onToggleShowAskGPT: handleToggleShowAskGPT,
     }),
     [
       showAskGPT,
-      GPTKey,
-      GPTUrl,
-      GPTChatModel,
-      GPTEmbeddingModel,
-      GPTPromptTemplate,
-      GPTAvailableModels,
-      tempGPTKey,
-      tempGPTUrl,
-      tempGPTChatModel,
-      tempGPTEmbeddingModel,
-      tempGPTPromptTemplate,
-      handleGPTKeyChange,
-      handleGPTUrlChange,
-      handleBlurGPTKey,
-      handleBlurGPTUrl,
-      handleGPTChatModelChange,
-      handleBlurGPTChatModel,
-      handleGPTEmbeddingModelChange,
-      handleBlurGPTEmbeddingModel,
-      handleGPTPromptTemplateChange,
-      handleBlurGPTPromptTemplate,
-      handleGPTAvailableModelsChange,
-      handleToggleShowAskGPT
+      gptEndpoints,
+      gptBindings,
+      gptDefaultModels,
+      gptPromptTemplate,
+      gptAvailableModelsByEndpoint,
+      handleAddGptEndpoint,
+      handleUpdateGptEndpoint,
+      handleRemoveGptEndpoint,
+      handleToggleGptEndpointEnabled,
+      handleSetGptBindings,
+      handleSetGptDefaultModels,
+      handleSetGptPromptTemplate,
+      handleSetAvailableModelsForEndpoint,
+      handleToggleShowAskGPT,
     ]
   )
 
   return (
     <div className="flex">
-      <SettingsSidebar
-        onNavChange={setNavPage}
-        onCollapse={handleSidebarCollapse}
-      />
+      <SettingsSidebar onNavChange={setNavPage} onCollapse={handleSidebarCollapse} />
 
-      <div className={`transition-all duration-300 ease-in-out max-w-3xl mx-auto px-4 sm:px-6 md:px-8 py-10 ${sidebarCollapsed ? 'lg:pl-8' : 'lg:pl-10'}`}>
+      <div
+        className={`transition-all duration-300 ease-in-out max-w-3xl mx-auto px-4 sm:px-6 md:px-8 py-10 ${
+          sidebarCollapsed ? "lg:pl-8" : "lg:pl-10"
+        }`}>
         {navPage === 0 && (
           <>
             <GeneralSettings {...generalSettingsProps} />

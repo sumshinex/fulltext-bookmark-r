@@ -1,28 +1,33 @@
-import { useState } from 'react'
-import { useDispatch, useSelector } from 'react-redux'
+import { useState } from "react"
+import { useDispatch, useSelector } from "react-redux"
 import {
+  addGptEndpoint,
   AppStat,
+  removeGptEndpoint,
+  setAvailableModelsForEndpoint,
   setCustomSearchEngines,
   setForbiddenURLs,
-  setGPTAvailableModels,
-  setGPTChatModel,
-  setGPTEmbeddingModel,
-  setGPTKey,
-  setGPTPromptTemplate,
-  setGPTURL,
+  setGptBindings,
+  setGptDefaultModels,
+  setGptPromptTemplate,
   setMaxResults,
   setRemoteStoreURL,
   setTempPageExpireTime,
   toggleBookmarkAdaption,
+  toggleGptEndpointEnabled,
   toggleRemoteStore,
   toggleRemoteStoreEveryPage,
   toggleSearchEngineAdaption,
   toggleShowAskGPT,
   toggleShowOnlyBookmarkedResults,
   toggleStoreEveryPage,
-  toggleWeiboSupport
-} from '~store/stat-slice'
-import { validateCustomSearchEngines } from '~lib/utils'
+  toggleWeiboSupport,
+  updateGptEndpoint,
+  type ApiEndpoint,
+  type EndpointBindings,
+  type ModelDefaults,
+} from "~store/stat-slice"
+import { validateCustomSearchEngines } from "~lib/utils"
 
 export const useSettingsState = () => {
   const dispatch = useDispatch()
@@ -46,23 +51,21 @@ export const useSettingsState = () => {
     (state: AppStat) => state.remoteStoreEveryPage
   )
   const forbiddenURLs = useSelector((state: AppStat) => state.forbiddenURLs)
-  const customSearchEngines = useSelector((state: AppStat) => state.customSearchEngines)
+  const customSearchEngines = useSelector(
+    (state: AppStat) => state.customSearchEngines
+  )
   const maxResults = useSelector((state: AppStat) => state.maxResults)
   const weiboSupport = useSelector((state: AppStat) => state.weiboSupport)
-  const GPTKey = useSelector((state: AppStat) => state.GPTKey)
-  const GPTURL = useSelector((state: AppStat) => state.GPTURL)
-  const GPTChatModel = useSelector((state: AppStat) => state.GPTChatModel)
-  const GPTEmbeddingModel = useSelector((state: AppStat) => state.GPTEmbeddingModel)
-  const GPTPromptTemplate = useSelector((state: AppStat) => state.GPTPromptTemplate)
-  const GPTAvailableModels = useSelector((state: AppStat) => state.GPTAvailableModels)
   const showAskGPT = useSelector((state: AppStat) => state.showAskGPT)
+  const gptEndpoints = useSelector((state: AppStat) => state.gptEndpoints)
+  const gptBindings = useSelector((state: AppStat) => state.gptBindings)
+  const gptDefaultModels = useSelector((state: AppStat) => state.gptDefaultModels)
+  const gptPromptTemplate = useSelector((state: AppStat) => state.gptPromptTemplate)
+  const gptAvailableModelsByEndpoint = useSelector(
+    (state: AppStat) => state.gptAvailableModelsByEndpoint
+  )
 
   const [navPage, setNavPage] = useState(0)
-  const [tempGPTURL, setTempGPTURL] = useState(GPTURL)
-  const [tempGPTKey, setTempGPTKey] = useState(GPTKey)
-  const [tempGPTChatModel, setTempGPTChatModel] = useState(GPTChatModel)
-  const [tempGPTEmbeddingModel, setTempGPTEmbeddingModel] = useState(GPTEmbeddingModel)
-  const [tempGPTPromptTemplate, setTempGPTPromptTemplate] = useState(GPTPromptTemplate)
   const [tempPageExpireTimeInDays, setTempPageExpireTimeInDays] = useState(
     tempPageExpireTime / 1000 / 60 / 60 / 24
   )
@@ -70,55 +73,13 @@ export const useSettingsState = () => {
   const [tempForbiddenURLs, setTempForbiddenURLs] = useState(
     forbiddenURLs.join("\n")
   )
-  const [tempCustomSearchEngines, setTempCustomSearchEngines] = useState(customSearchEngines)
+  const [tempCustomSearchEngines, setTempCustomSearchEngines] = useState(
+    customSearchEngines
+  )
   const [customSearchEnginesError, setCustomSearchEnginesError] = useState(
     validateCustomSearchEngines(customSearchEngines)
   )
   const [tempRemoteStoreURL, setTempRemoteStoreURL] = useState(remoteStoreURL)
-
-  const handleGPTURLChange = (e) => {
-    setTempGPTURL(e.target.value)
-  }
-
-  const handleBlurGPTURL = () => {
-    dispatch(setGPTURL(tempGPTURL))
-  }
-
-  const handleGPTKeyChange = (e) => {
-    setTempGPTKey(e.target.value)
-  }
-
-  const handleBlurGPTKey = () => {
-    dispatch(setGPTKey(tempGPTKey))
-  }
-
-  const handleGPTChatModelChange = (e) => {
-    setTempGPTChatModel(e.target.value)
-  }
-
-  const handleBlurGPTChatModel = () => {
-    dispatch(setGPTChatModel(tempGPTChatModel))
-  }
-
-  const handleGPTEmbeddingModelChange = (e) => {
-    setTempGPTEmbeddingModel(e.target.value)
-  }
-
-  const handleBlurGPTEmbeddingModel = () => {
-    dispatch(setGPTEmbeddingModel(tempGPTEmbeddingModel))
-  }
-
-  const handleGPTPromptTemplateChange = (e) => {
-    setTempGPTPromptTemplate(e.target.value)
-  }
-
-  const handleBlurGPTPromptTemplate = () => {
-    dispatch(setGPTPromptTemplate(tempGPTPromptTemplate))
-  }
-
-  const handleGPTAvailableModelsChange = (models: string[]) => {
-    dispatch(setGPTAvailableModels(models))
-  }
 
   const handlePageExpireTimeChange = (e) => {
     if (e.target.value === "") {
@@ -216,6 +177,41 @@ export const useSettingsState = () => {
     dispatch(setRemoteStoreURL(tempRemoteStoreURL))
   }
 
+  const handleAddGptEndpoint = (endpoint: ApiEndpoint) => {
+    dispatch(addGptEndpoint(endpoint))
+  }
+
+  const handleUpdateGptEndpoint = (endpoint: ApiEndpoint) => {
+    dispatch(updateGptEndpoint(endpoint))
+  }
+
+  const handleRemoveGptEndpoint = (endpointId: string) => {
+    dispatch(removeGptEndpoint(endpointId))
+  }
+
+  const handleToggleGptEndpointEnabled = (endpointId: string) => {
+    dispatch(toggleGptEndpointEnabled(endpointId))
+  }
+
+  const handleSetGptBindings = (bindings: EndpointBindings) => {
+    dispatch(setGptBindings(bindings))
+  }
+
+  const handleSetGptDefaultModels = (models: ModelDefaults) => {
+    dispatch(setGptDefaultModels(models))
+  }
+
+  const handleSetGptPromptTemplate = (template: string) => {
+    dispatch(setGptPromptTemplate(template))
+  }
+
+  const handleSetAvailableModelsForEndpoint = (
+    endpointId: string,
+    models: string[]
+  ) => {
+    dispatch(setAvailableModelsForEndpoint({ endpointId, models }))
+  }
+
   return {
     searchEngineAdaption,
     weiboSupport,
@@ -226,23 +222,17 @@ export const useSettingsState = () => {
     remoteStoreURL,
     remoteStoreEveryPage,
     showAskGPT,
-    GPTKey,
-    GPTUrl: GPTURL,
-    GPTChatModel,
-    GPTEmbeddingModel,
-    GPTPromptTemplate,
-    GPTAvailableModels,
+    gptEndpoints,
+    gptBindings,
+    gptDefaultModels,
+    gptPromptTemplate,
+    gptAvailableModelsByEndpoint,
     tempMaxResults,
     tempPageExpireTimeInDays,
     tempForbiddenURLs,
     tempCustomSearchEngines,
     customSearchEnginesError,
     tempRemoteStoreURL,
-    tempGPTKey,
-    tempGPTUrl: tempGPTURL,
-    tempGPTChatModel,
-    tempGPTEmbeddingModel,
-    tempGPTPromptTemplate,
     navPage,
     handleMaxResultsChange,
     handleMaxResultsSubmit,
@@ -255,17 +245,14 @@ export const useSettingsState = () => {
     applyCustomSearchEngines,
     handleRemoteStoreURLChange,
     handleBlurRemoteStoreURL,
-    handleGPTKeyChange,
-    handleGPTUrlChange: handleGPTURLChange,
-    handleBlurGPTKey,
-    handleBlurGPTUrl: handleBlurGPTURL,
-    handleGPTChatModelChange,
-    handleBlurGPTChatModel,
-    handleGPTEmbeddingModelChange,
-    handleBlurGPTEmbeddingModel,
-    handleGPTPromptTemplateChange,
-    handleBlurGPTPromptTemplate,
-    handleGPTAvailableModelsChange,
+    handleAddGptEndpoint,
+    handleUpdateGptEndpoint,
+    handleRemoveGptEndpoint,
+    handleToggleGptEndpointEnabled,
+    handleSetGptBindings,
+    handleSetGptDefaultModels,
+    handleSetGptPromptTemplate,
+    handleSetAvailableModelsForEndpoint,
     setNavPage,
     toggleSearchEngineAdaption,
     toggleWeiboSupport,
@@ -274,6 +261,6 @@ export const useSettingsState = () => {
     toggleBookmarkAdaption,
     toggleShowAskGPT,
     toggleRemoteStore,
-    toggleRemoteStoreEveryPage
+    toggleRemoteStoreEveryPage,
   }
 }

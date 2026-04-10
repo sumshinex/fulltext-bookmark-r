@@ -1,6 +1,34 @@
 import { createSlice } from "@reduxjs/toolkit"
 import type { IGPTAnswer } from "~lib/interface"
 
+export type EndpointCapability = "chat" | "embedding"
+
+export interface EndpointModelOverrides {
+  chat?: string
+  embedding?: string
+}
+
+export interface ApiEndpoint {
+  id: string
+  name: string
+  baseUrl: string
+  apiKey: string
+  enabled: boolean
+  capabilities: EndpointCapability[]
+  modelOverrides?: EndpointModelOverrides
+  notes?: string
+}
+
+export interface ModelDefaults {
+  chat: string
+  embedding: string
+}
+
+export interface EndpointBindings {
+  chat: string[]
+  embedding: string[]
+}
+
 export interface AppStat {
   searchEngineAdaption: boolean
   storeEveryPage: boolean
@@ -15,12 +43,11 @@ export interface AppStat {
   forbiddenURLs: string[]
   weiboSupport: boolean
   customSearchEngines: string
-  GPTURL: string
-  GPTKey: string
-  GPTChatModel: string
-  GPTEmbeddingModel: string
-  GPTPromptTemplate: string
-  GPTAvailableModels: string[]
+  gptEndpoints: ApiEndpoint[]
+  gptBindings: EndpointBindings
+  gptDefaultModels: ModelDefaults
+  gptPromptTemplate: string
+  gptAvailableModelsByEndpoint: Record<string, string[]>
   GPTQuery: string
   GPTAnswer: IGPTAnswer
   GPTLoading: boolean
@@ -53,6 +80,24 @@ const defaultCustomSearchEngines = JSON.stringify(
   2
 )
 
+const defaultModelDefaults: ModelDefaults = {
+  chat: "gpt-3.5-turbo",
+  embedding: "text-embedding-3-small"
+}
+
+const defaultBindings: EndpointBindings = {
+  chat: [],
+  embedding: []
+}
+
+const removeEndpointFromBindings = (
+  bindings: EndpointBindings,
+  endpointId: string
+): EndpointBindings => ({
+  chat: bindings.chat.filter((id) => id !== endpointId),
+  embedding: bindings.embedding.filter((id) => id !== endpointId)
+})
+
 const statSlice = createSlice({
   name: "stat",
   initialState: {
@@ -76,18 +121,17 @@ const statSlice = createSlice({
     weiboSupport: true,
     customSearchEngines: defaultCustomSearchEngines,
     tempPageExpireTime: 60 * 60 * 24 * 60 * 1000,
-    GPTURL: "",
-    GPTKey: "",
-    GPTChatModel: "gpt-3.5-turbo",
-    GPTEmbeddingModel: "text-embedding-3-small",
-    GPTPromptTemplate: defaultPromptTemplate,
-    GPTAvailableModels: [],
+    gptEndpoints: [],
+    gptBindings: defaultBindings,
+    gptDefaultModels: defaultModelDefaults,
+    gptPromptTemplate: defaultPromptTemplate,
+    gptAvailableModelsByEndpoint: {},
     GPTQuery: "",
     GPTAnswer: null,
     GPTLoading: false,
     showAskGPT: true,
     firstOpenPopup: 0
-  },
+  } as AppStat,
   reducers: {
     setFirstOpenPopup: (state) => {
       state.firstOpenPopup = state.firstOpenPopup + 1
@@ -104,23 +148,41 @@ const statSlice = createSlice({
     setGPTAnswer: (state, action) => {
       state.GPTAnswer = action.payload
     },
-    setGPTURL: (state, action) => {
-      state.GPTURL = action.payload
+    addGptEndpoint: (state, action) => {
+      state.gptEndpoints.push(action.payload)
     },
-    setGPTKey: (state, action) => {
-      state.GPTKey = action.payload
+    updateGptEndpoint: (state, action) => {
+      const nextEndpoint = action.payload
+      state.gptEndpoints = state.gptEndpoints.map((endpoint) =>
+        endpoint.id === nextEndpoint.id ? nextEndpoint : endpoint
+      )
     },
-    setGPTChatModel: (state, action) => {
-      state.GPTChatModel = action.payload
+    removeGptEndpoint: (state, action) => {
+      const endpointId = action.payload
+      state.gptEndpoints = state.gptEndpoints.filter(
+        (endpoint) => endpoint.id !== endpointId
+      )
+      state.gptBindings = removeEndpointFromBindings(state.gptBindings, endpointId)
+      delete state.gptAvailableModelsByEndpoint[endpointId]
     },
-    setGPTEmbeddingModel: (state, action) => {
-      state.GPTEmbeddingModel = action.payload
+    toggleGptEndpointEnabled: (state, action) => {
+      const endpointId = action.payload
+      const endpoint = state.gptEndpoints.find((item) => item.id === endpointId)
+      if (endpoint) {
+        endpoint.enabled = !endpoint.enabled
+      }
     },
-    setGPTPromptTemplate: (state, action) => {
-      state.GPTPromptTemplate = action.payload
+    setGptBindings: (state, action) => {
+      state.gptBindings = action.payload
     },
-    setGPTAvailableModels: (state, action) => {
-      state.GPTAvailableModels = action.payload
+    setGptDefaultModels: (state, action) => {
+      state.gptDefaultModels = action.payload
+    },
+    setGptPromptTemplate: (state, action) => {
+      state.gptPromptTemplate = action.payload
+    },
+    setAvailableModelsForEndpoint: (state, action) => {
+      state.gptAvailableModelsByEndpoint[action.payload.endpointId] = action.payload.models
     },
     toggleSearchEngineAdaption: (state) => {
       state.searchEngineAdaption = !state.searchEngineAdaption
@@ -178,12 +240,14 @@ export const {
   setCustomSearchEngines,
   setMaxResults,
   toggleWeiboSupport,
-  setGPTKey,
-  setGPTURL,
-  setGPTChatModel,
-  setGPTEmbeddingModel,
-  setGPTPromptTemplate,
-  setGPTAvailableModels,
+  addGptEndpoint,
+  updateGptEndpoint,
+  removeGptEndpoint,
+  toggleGptEndpointEnabled,
+  setGptBindings,
+  setGptDefaultModels,
+  setGptPromptTemplate,
+  setAvailableModelsForEndpoint,
   setGPTQuery,
   setGPTAnswer,
   setGPTLoading,

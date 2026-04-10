@@ -6,6 +6,8 @@
 const isObject = (val: unknown): val is Record<any, any> =>
   val !== null && typeof val === 'object';
 
+type TimerHandle = ReturnType<typeof setTimeout> | number;
+
 function debounce(
   func: (...args: any[]) => any,
   wait: number,
@@ -15,7 +17,7 @@ function debounce(
     lastThis: undefined,
     maxWait: number,
     result: any,
-    timerId: number | undefined,
+    timerId: TimerHandle | undefined,
     lastCallTime: number | undefined;
 
   let lastInvokeTime = 0;
@@ -48,17 +50,19 @@ function debounce(
     return result;
   }
 
-  function startTimer(pendingFunc: () => void, wait: number) {
+  function startTimer(pendingFunc: () => void, wait: number): TimerHandle {
     if (useRAF) {
-      window.cancelAnimationFrame(timerId!);
+      if (typeof timerId === 'number') {
+        window.cancelAnimationFrame(timerId);
+      }
       return window.requestAnimationFrame(pendingFunc);
     }
     return setTimeout(pendingFunc, wait);
   }
 
-  function cancelTimer(id: number) {
+  function cancelTimer(id: TimerHandle) {
     if (useRAF) {
-      return window.cancelAnimationFrame(id);
+      return window.cancelAnimationFrame(id as number);
     }
     clearTimeout(id);
   }

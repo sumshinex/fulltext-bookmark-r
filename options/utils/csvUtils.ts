@@ -329,7 +329,7 @@ export const handleFileUpload = async (file, onComplete) => {
             // Process each item in the batch
             for (const item of batch) {
               try {
-                await new Promise((resolve) => {
+                await new Promise<void>((resolve) => {
                   chrome.runtime.sendMessage({
                     command: "import",
                     data: item

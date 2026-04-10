@@ -15,26 +15,6 @@
     "message": "Ask OpenAI GPT-3.5 about your archived pages, and it will answer with references. For example, if you ask 'how to make milk tea', this extension will search in your archived pages, find the most relevant page, and answer your question with references. (If you don't like the feature, you can always choose to close it in Settings.)",
     "description": "Search button."
   },
-  "settingPageGPTTitle": {
-    "message": "Ask GPT Settings",
-    "description": "Search button."
-  },
-  "settingPageGPTTitleDesp": {
-    "message": "Show 'Ask GPT' in popup",
-    "description": "Search button."
-  },
-  "gptFirst": {
-    "message": "Please configure API Base URL, API Key, chat model, and embedding model in Settings first.",
-    "description": "Search button."
-  },
-  "settingPageGPTURLDesp": {
-    "message": "API Base URL and API Key",
-    "description": "Search button."
-  },
-  "settingPageGPTTest": {
-    "message": "Test",
-    "description": "Search button."
-  },
   "popupAskPlaceholder": {
     "message": "Ask about your archived pages ↵",
     "description": "Search button."
@@ -51,20 +31,42 @@
     "message": "Request failed. Please check network, base URL, or model settings.",
     "description": "Ask GPT request failed message."
   },
+  "gptBindingUnavailable": {
+    "message": "$CAPABILITY$ binding has no available endpoints.",
+    "description": "No available endpoints in binding.",
+    "placeholders": {
+      "capability": {
+        "content": "$1",
+        "example": "Chat"
+      }
+    }
+  },
+  "gptMissingPageContext": {
+    "message": "Missing page context.",
+    "description": "Missing page context message."
+  },
+  "gptMissingEndpointId": {
+    "message": "Missing endpoint id.",
+    "description": "Missing endpoint id message."
+  },
+  "gptBackgroundFetchModelsFailed": {
+    "message": "Failed to fetch models.",
+    "description": "Background fetch models failure."
+  },
+  "gptBackgroundTestEndpointFailed": {
+    "message": "Failed to test endpoint.",
+    "description": "Background test endpoint failure."
+  },
+  "gptBackgroundTestBindingFailed": {
+    "message": "Failed to test binding.",
+    "description": "Background test binding failure."
+  },
+  "gptBackgroundGenerateRuleFailed": {
+    "message": "Failed to generate search engine rule.",
+    "description": "Background generate rule failure."
+  },
   "popupAskAnswerSource": {
     "message": "Sources from archive:",
-    "description": "Search button."
-  },
-  "settingPageGPTTestSuc": {
-    "message": "Test success",
-    "description": "Search button."
-  },
-  "settingPageGPTTestFail": {
-    "message": "Test fail, please check your settings",
-    "description": "Search button."
-  },
-  "settingPageGPTURLDespnotes": {
-    "message": "Please provide your own OpenAI API key to make it work.",
     "description": "Search button."
   },
   "popupLinkTitle": {
@@ -590,6 +592,186 @@
   "settingPageSettingGPTTestLoading": {
     "message": "Testing...",
     "description": "GPT test loading text."
+  },
+  "settingPageSettingGPTEndpointsTitle": {
+    "message": "Endpoints",
+    "description": "GPT endpoints section title."
+  },
+  "settingPageSettingGPTEndpointResourcesDesp": {
+    "message": "Endpoint resources",
+    "description": "Endpoint resources description."
+  },
+  "settingPageSettingGPTEndpointResourcesNote": {
+    "message": "Each endpoint keeps its own Base URL and API key. Runtime order is determined by bindings.",
+    "description": "Endpoint resources note."
+  },
+  "settingPageSettingGPTAddEndpointBtn": {
+    "message": "Add Endpoint",
+    "description": "Add endpoint button."
+  },
+  "settingPageSettingGPTNoEndpoints": {
+    "message": "No endpoints yet.",
+    "description": "No endpoints message."
+  },
+  "settingPageSettingGPTEnabled": {
+    "message": "Enabled",
+    "description": "Enabled label."
+  },
+  "settingPageSettingGPTNotesPlaceholder": {
+    "message": "Notes",
+    "description": "Notes placeholder."
+  },
+  "settingPageSettingGPTModelsLabel": {
+    "message": "Models",
+    "description": "Models label."
+  },
+  "settingPageSettingGPTDefaultModelsTitle": {
+    "message": "Default Models",
+    "description": "Default models title."
+  },
+  "settingPageSettingGPTBindingTitle": {
+    "message": "$CAPABILITY$ Binding",
+    "description": "Binding title.",
+    "placeholders": {
+      "capability": {
+        "content": "$1",
+        "example": "Chat"
+      }
+    }
+  },
+  "settingPageSettingGPTBindingOrderDesp": {
+    "message": "$CAPABILITY$ binding order",
+    "description": "Binding order description.",
+    "placeholders": {
+      "capability": {
+        "content": "$1",
+        "example": "Chat"
+      }
+    }
+  },
+  "settingPageSettingGPTBindingOrderNote": {
+    "message": "The first endpoint is primary. Later endpoints act as fallbacks in order.",
+    "description": "Binding order note."
+  },
+  "settingPageSettingGPTNoBindings": {
+    "message": "No endpoints bound.",
+    "description": "No bindings message."
+  },
+  "settingPageSettingGPTMoveUpBtn": {
+    "message": "Up",
+    "description": "Move up button."
+  },
+  "settingPageSettingGPTMoveDownBtn": {
+    "message": "Down",
+    "description": "Move down button."
+  },
+  "settingPageSettingGPTRemoveBtn": {
+    "message": "Remove",
+    "description": "Remove button."
+  },
+  "settingPageSettingGPTBindingDiagnosticsDesp": {
+    "message": "$CAPABILITY$ diagnostics",
+    "description": "Binding diagnostics description.",
+    "placeholders": {
+      "capability": {
+        "content": "$1",
+        "example": "Chat"
+      }
+    }
+  },
+  "settingPageSettingGPTBindingDiagnosticsNote": {
+    "message": "Configuration errors are excluded from failover and should be fixed first.",
+    "description": "Binding diagnostics note."
+  },
+  "settingPageSettingGPTPartialFailures": {
+    "message": "Partial failures",
+    "description": "Partial failures prefix."
+  },
+  "settingPageSettingGPTSuccess": {
+    "message": "Success",
+    "description": "Success prefix."
+  },
+  "settingPageSettingGPTError": {
+    "message": "Error",
+    "description": "Error prefix."
+  },
+  "settingPageSettingGPTSelectModel": {
+    "message": "Select a model",
+    "description": "Select model placeholder."
+  },
+  "settingPageSettingGPTPrimaryEndpointName": {
+    "message": "Endpoint $INDEX$",
+    "description": "Default endpoint name.",
+    "placeholders": {
+      "index": {
+        "content": "$1",
+        "example": "1"
+      }
+    }
+  },
+  "settingPageSettingGPTCapabilityChat": {
+    "message": "Chat",
+    "description": "Chat capability label."
+  },
+  "settingPageSettingGPTCapabilityEmbedding": {
+    "message": "Embedding",
+    "description": "Embedding capability label."
+  },
+  "settingPageSettingGPTChatOverride": {
+    "message": "Chat override",
+    "description": "Chat override label."
+  },
+  "settingPageSettingGPTEmbeddingOverride": {
+    "message": "Embedding override",
+    "description": "Embedding override label."
+  },
+  "settingPageSettingGPTTestChatBtn": {
+    "message": "Test Chat",
+    "description": "Test Chat button."
+  },
+  "settingPageSettingGPTTestEmbeddingBtn": {
+    "message": "Test Embedding",
+    "description": "Test Embedding button."
+  },
+  "settingPageSettingGPTBindChatBtn": {
+    "message": "Bind Chat",
+    "description": "Bind Chat button."
+  },
+  "settingPageSettingGPTUnbindChatBtn": {
+    "message": "Unbind Chat",
+    "description": "Unbind Chat button."
+  },
+  "settingPageSettingGPTBindEmbeddingBtn": {
+    "message": "Bind Embedding",
+    "description": "Bind Embedding button."
+  },
+  "settingPageSettingGPTUnbindEmbeddingBtn": {
+    "message": "Unbind Embedding",
+    "description": "Unbind Embedding button."
+  },
+  "settingPageSettingGPTDeleteEndpointConfirm": {
+    "message": "Delete endpoint \"$NAME$\"?",
+    "description": "Delete endpoint confirmation.",
+    "placeholders": {
+      "name": {
+        "content": "$1",
+        "example": "Primary"
+      }
+    }
+  },
+  "settingPageSettingGPTDeleteEndpointBoundConfirm": {
+    "message": "Delete endpoint \"$NAME$\"? It is currently bound to: $IMPACTS$.",
+    "description": "Delete bound endpoint confirmation.",
+    "placeholders": {
+      "name": {
+        "content": "$1",
+        "example": "Primary"
+      },
+      "impacts": {
+        "content": "$2",
+        "example": "Chat, Embedding"
+      }
+    }
   },
   "settingPageSettingRemoteAPI": {
     "message": "Remote API Settings",
