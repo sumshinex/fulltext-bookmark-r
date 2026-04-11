@@ -29,5 +29,5 @@ jobs:
       - name: Upload extension zip
         uses: actions/upload-artifact@v4
         with:
-          name: chrome-extension-zip
+          name: fulltext-bookmark-r-zip
           path: build/chrome-mv3-prod.zip

@@ -81,7 +81,7 @@ const resultWatermarkStyle = `
   color: #E5E7EB;
 `
 
-let showSearchResult = "true"
+let showSearchResult = true
 let thisURL = window.location.href
 const storageKey = "fulltextbookmark"
 const mountPointId = "fulltext-bookmark-mount-point"
@@ -425,7 +425,7 @@ function insertResult(originContainer: HTMLElement, newElement: HTMLDivElement, 
 }
 
 function doWork() {
-  if (!currentSearchEngineRule || showSearchResult !== "true" || !resultElement) {
+  if (!currentSearchEngineRule || !showSearchResult || !resultElement) {
     return
   }
 
@@ -483,7 +483,7 @@ function prepare() {
   resetSearchState()
   clearResult()
 
-  if (!thisURL || showSearchResult !== "true") {
+  if (!thisURL || !showSearchResult) {
     return
   }
 
@@ -572,16 +572,40 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   return false
 })
 
+const applyPersistedSettings = (persistedValue?: string) => {
+  if (!persistedValue) {
+    showSearchResult = true
+    customSearchEngineRules = []
+    return
+  }
+
+  const rootParsed = JSON.parse(persistedValue)
+  showSearchResult = rootParsed?.searchEngineAdaption !== false
+  customSearchEngineRules = parseCustomSearchEngines(rootParsed?.customSearchEngines || "")
+}
+
 chrome.storage.local.get([`persist:${storageKey}`], (items) => {
-  if (items[`persist:${storageKey}`]) {
-    const rootParsed = JSON.parse(items[`persist:${storageKey}`])
-    showSearchResult = rootParsed?.searchEngineAdaption
-    customSearchEngineRules = parseCustomSearchEngines(rootParsed?.customSearchEngines || "")
+  applyPersistedSettings(items[`persist:${storageKey}`])
+  prepare()
+  observeLocationChanges()
+})
+
+chrome.storage.onChanged.addListener((changes, areaName) => {
+  if (areaName !== "local") {
+    return
+  }
+
+  const persistedChange = changes[`persist:${storageKey}`]
+  if (!persistedChange) {
+    return
+  }
+
+  applyPersistedSettings(persistedChange.newValue)
+  if (!showSearchResult) {
+    clearResult()
+    resetSearchState()
+    return
   }
 
   prepare()
-
-  if (showSearchResult === "true") {
-    observeLocationChanges()
-  }
 })

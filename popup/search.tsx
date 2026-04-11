@@ -1,25 +1,31 @@
-import { createRef, useEffect, useState } from "react";
-// import Toggle from "react-toggle"
+import { createRef, useEffect, useState } from "react"
 
-import { truncateText } from "~lib/utils";
-// import debounce from "@src/lib/debounce"
-import useDebounce from "~lib/useDebounce";
-import "~/style.css";
-// import "@assets/style/tailwind.css";
-// import debounce from "~lib/simpleDebounce"
+import { truncateText } from "~lib/utils"
+import useDebounce from "~lib/useDebounce"
+import { SearchEngineRulePanel } from "~popup/SearchEngineRulePanel"
+import "~/style.css"
+
+interface SearchResultItem {
+  title: string
+  url: string
+  date: number
+  relevancy?: number
+  isBookmarked?: boolean
+}
 
 export const SearchView = () => {
-  const [searchString, setSearchString] = useState("");
-  const [searchResults, setSearchResults] = useState([]);
-  const [pinyinStatus, setPinyinStatus] = useState(0);
-  const [filter, setFilter] = useState(1); // 0:relevancy 1:recent 2:old 3:bookmark
-  const [isLoading, setIsLoading] = useState(0);
-  const debouncedSearchTerm = useDebounce(searchString, 300);
+  const [searchString, setSearchString] = useState("")
+  const [searchResults, setSearchResults] = useState<SearchResultItem[]>([])
+  const [pinyinStatus, setPinyinStatus] = useState(0)
+  const [filter, setFilter] = useState(1) // 0:relevancy 1:recent 2:old 3:bookmark
+  const [isLoading, setIsLoading] = useState(0)
+  const debouncedSearchTerm = useDebounce(searchString, 300)
+
   const sendSearch = () => {
     if (searchString === "" || searchString == " ") {
-      return;
+      return
     }
-    setIsLoading(1);
+    setIsLoading(1)
     chrome.runtime
       .sendMessage({ command: "popsearch", search: searchString })
       .then((v) => {
@@ -27,89 +33,84 @@ export const SearchView = () => {
           setSearchResults(
             v
               .map((e, index) => {
-                e.relevancy = index;
-                return e;
+                e.relevancy = index
+                return e
               })
               .sort((a, b) => {
-                return b.date - a.date;
+                return b.date - a.date
               })
-          );
-          setIsLoading(2);
+          )
+          setIsLoading(2)
         } else {
-          setIsLoading(3);
+          setIsLoading(3)
         }
-      });
-  };
+      })
+  }
 
   useEffect(() => {
     if (pinyinStatus === 0) {
-      sendSearch();
+      sendSearch()
     }
-  }, [debouncedSearchTerm]);
+  }, [debouncedSearchTerm])
 
   const handleChangeFilter = (value) => {
-    // console.log("---", value);
     if (value === filter) {
-      return;
+      return
     }
     switch (value) {
       case 0:
         setSearchResults(
-          searchResults.sort((a, b) => {
-            return b.relevancy - a.relevancy;
+          [...searchResults].sort((a, b) => {
+            return (b.relevancy || 0) - (a.relevancy || 0)
           })
-        );
-        break;
+        )
+        break
       case 1:
-        // sort by date, recent
         setSearchResults(
-          searchResults.sort((a, b) => {
-            return b.date - a.date;
+          [...searchResults].sort((a, b) => {
+            return b.date - a.date
           })
-        );
-        break;
+        )
+        break
       case 2:
-        // sort by date, old
         setSearchResults(
-          searchResults.sort((a, b) => {
-            return a.date - b.date;
+          [...searchResults].sort((a, b) => {
+            return a.date - b.date
           })
-        );
-        break;
+        )
+        break
       case 3:
-        // sort by bookmark
         setSearchResults(
-          searchResults.sort((a, b) => {
-            return a.isBookmarked === b.isBookmarked
-              ? 0
-              : a.isBookmarked
-              ? -1
-              : 1;
+          [...searchResults].sort((a, b) => {
+            return a.isBookmarked === b.isBookmarked ? 0 : a.isBookmarked ? -1 : 1
           })
-        );
-        break;
+        )
+        break
       default:
-        break;
+        break
     }
-    setFilter(value);
-  };
+    setFilter(value)
+  }
 
   const handleSearchInputChange = (e) => {
-    setSearchString(e.target.value);
-  };
-  const handleSearchInputBlur = (e) => {
-    sendSearch();
-  };
+    setSearchString(e.target.value)
+  }
+
+  const handleSearchInputBlur = () => {
+    sendSearch()
+  }
+
   const handleKeyPress = (event) => {
     if (event.key === "Enter") {
-      sendSearch();
+      sendSearch()
     }
-  };
+  }
 
-  const searchinputRef = createRef<any>();
+  const searchinputRef = createRef<any>()
   useEffect(() => {
-    searchinputRef.current.focus();
-  }, []);
+    searchinputRef.current.focus()
+  }, [])
+
   return (
     <div className="w-[32rem] p-4 gap-4 h-[40rem] flex flex-col overflow-hidden">
       <div>
@@ -119,65 +120,50 @@ export const SearchView = () => {
           type="text"
           value={searchString}
           onChange={(e) => {
-            handleSearchInputChange(e);
+            handleSearchInputChange(e)
           }}
-          onBlur={(e) => {
-            handleSearchInputBlur(e);
-          }}
+          onBlur={handleSearchInputBlur}
           onKeyPress={handleKeyPress}
           onCompositionStart={() => {
-            setPinyinStatus(1);
+            setPinyinStatus(1)
           }}
           onCompositionEnd={() => {
-            // console.log("====================================")
-            // console.log("composition end")
-            // console.log("====================================")
-            setPinyinStatus(0);
-            // sendSearch()
+            setPinyinStatus(0)
           }}
           className="w-full h-10 px-4 rounded-lg shadow-md"
         />
       </div>
+
+      <SearchEngineRulePanel />
+
       {searchResults.length > 0 ? (
         <div className="flex flex-row justify-evenly">
           <span
-            className={
-              filter === 1 ? "text-blue-500 cursor-pointer" : " cursor-pointer"
-            }
+            className={filter === 1 ? "text-blue-500 cursor-pointer" : " cursor-pointer"}
             onClick={() => {
-              handleChangeFilter(1);
-            }}
-          >
+              handleChangeFilter(1)
+            }}>
             {chrome.i18n.getMessage("popupFilterRecent")}
           </span>
           <span
-            className={
-              filter === 2 ? "text-blue-500 cursor-pointer" : "cursor-pointer"
-            }
+            className={filter === 2 ? "text-blue-500 cursor-pointer" : "cursor-pointer"}
             onClick={() => {
-              handleChangeFilter(2);
-            }}
-          >
+              handleChangeFilter(2)
+            }}>
             {chrome.i18n.getMessage("popupFilterOldest")}
           </span>
           <span
-            className={
-              filter === 0 ? "text-blue-500 cursor-pointer" : "cursor-pointer"
-            }
+            className={filter === 0 ? "text-blue-500 cursor-pointer" : "cursor-pointer"}
             onClick={() => {
-              handleChangeFilter(0);
-            }}
-          >
+              handleChangeFilter(0)
+            }}>
             {chrome.i18n.getMessage("popupFilterRelevancy")}
           </span>
           <span
-            className={
-              filter === 3 ? "text-blue-500 cursor-pointer" : "cursor-pointer"
-            }
+            className={filter === 3 ? "text-blue-500 cursor-pointer" : "cursor-pointer"}
             onClick={() => {
-              handleChangeFilter(3);
-            }}
-          >
+              handleChangeFilter(3)
+            }}>
             {chrome.i18n.getMessage("popupFilterBookmarks")}
           </span>
         </div>
@@ -185,28 +171,25 @@ export const SearchView = () => {
         <div></div>
       )}
 
-      <div className="flex flex-col gap-4  p-2 overflow-y-auto overflow-x-hidden">
+      <div className="flex flex-col gap-4 p-2 overflow-y-auto overflow-x-hidden">
         {isLoading === 1 ? (
           <div className="flex justify-center items-center">
             <svg
               className="animate-spin -ml-1 mr-3 h-5 w-5 text-blue-500"
               xmlns="http://www.w3.org/2000/svg"
               fill="none"
-              viewBox="0 0 24 24"
-            >
+              viewBox="0 0 24 24">
               <circle
                 className="opacity-25"
                 cx="12"
                 cy="12"
                 r="10"
                 stroke="currentColor"
-                strokeWidth="4"
-              ></circle>
+                strokeWidth="4"></circle>
               <path
                 className="opacity-75"
                 fill="currentColor"
-                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647zM12 20.735A7.962 7.962 0 0112 12v-4.735l-3 2.646v4.736a7.962 7.962 0 013 2.647zM17 12a5 5 0 11-10 0 5 5 0 0110 0z"
-              ></path>
+                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647zM12 20.735A7.962 7.962 0 0112 12v-4.735l-3 2.646v4.736a7.962 7.962 0 013 2.647zM17 12a5 5 0 11-10 0 5 5 0 0110 0z"></path>
             </svg>
             <span>Searching...</span>
           </div>
@@ -221,9 +204,8 @@ export const SearchView = () => {
                 title={chrome.i18n.getMessage("popupLinkTitle")}
                 href={v.url}
                 onClick={() => {
-                  chrome.tabs.create({ url: v.url, active: false });
-                }}
-              >
+                  chrome.tabs.create({ url: v.url, active: false })
+                }}>
                 {truncateText(v.title, 100)}
               </a>
               {v.isBookmarked && <i className="ml-2">⭐</i>}
@@ -234,9 +216,9 @@ export const SearchView = () => {
                 {new Date(v.date).toLocaleDateString()}
               </p>
             </div>
-          );
+          )
         })}
       </div>
     </div>
-  );
-};
+  )
+}

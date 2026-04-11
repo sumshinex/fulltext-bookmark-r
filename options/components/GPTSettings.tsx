@@ -212,28 +212,29 @@ export const GPTSettings = memo(({
     handleRemoveGptEndpoint(endpoint.id)
   }
 
-  const handleFetchEndpointModels = async (endpointId: string) => {
-    setEndpointLoading((state) => ({ ...state, [endpointId]: true }))
-    setEndpointMessages((state) => ({ ...state, [endpointId]: "" }))
+  const handleFetchEndpointModels = async (endpoint: ApiEndpoint) => {
+    setEndpointLoading((state) => ({ ...state, [endpoint.id]: true }))
+    setEndpointMessages((state) => ({ ...state, [endpoint.id]: "" }))
     try {
       const response = await chrome.runtime.sendMessage({
         command: "gpt_fetch_endpoint_models",
-        endpointId,
+        endpointId: endpoint.id,
+        endpoint,
       })
       const models = Array.isArray(response?.models) ? response.models : []
       if (!response?.ok) {
         setEndpointMessages((state) => ({
           ...state,
-          [endpointId]: `${chrome.i18n.getMessage("settingPageSettingGPTError")}: ${response?.error || "Request failed"}`,
+          [endpoint.id]: `${chrome.i18n.getMessage("settingPageSettingGPTError")}: ${response?.error || "Request failed"}`,
         }))
-        handleSetAvailableModelsForEndpoint(endpointId, [])
+        handleSetAvailableModelsForEndpoint(endpoint.id, [])
         return
       }
 
-      handleSetAvailableModelsForEndpoint(endpointId, models)
+      handleSetAvailableModelsForEndpoint(endpoint.id, models)
       setEndpointMessages((state) => ({
         ...state,
-        [endpointId]:
+        [endpoint.id]:
           models.length > 0
             ? `${chrome.i18n.getMessage("settingPageSettingGPTModelsFetchSuccess")} (${models.length})`
             : chrome.i18n.getMessage("settingPageSettingGPTModelsFetchEmpty"),
@@ -241,10 +242,10 @@ export const GPTSettings = memo(({
     } catch (error: any) {
       setEndpointMessages((state) => ({
         ...state,
-        [endpointId]: `${chrome.i18n.getMessage("settingPageSettingGPTError")}: ${error.message}`,
+        [endpoint.id]: `${chrome.i18n.getMessage("settingPageSettingGPTError")}: ${error.message}`,
       }))
     } finally {
-      setEndpointLoading((state) => ({ ...state, [endpointId]: false }))
+      setEndpointLoading((state) => ({ ...state, [endpoint.id]: false }))
     }
   }
 
@@ -258,7 +259,10 @@ export const GPTSettings = memo(({
       const response = await chrome.runtime.sendMessage({
         command: "gpt_test_endpoint",
         endpointId: endpoint.id,
+        endpoint,
         capability,
+        defaultModels: gptDefaultModels,
+        promptTemplate: gptPromptTemplate,
       })
       if (!response?.ok) {
         setEndpointMessages((state) => ({
@@ -619,7 +623,7 @@ export const GPTSettings = memo(({
                     <button
                       className="text-blue-500"
                       disabled={endpointLoading[endpoint.id]}
-                      onClick={() => handleFetchEndpointModels(endpoint.id)}>
+                      onClick={() => handleFetchEndpointModels(endpoint)}>
                       {endpointLoading[endpoint.id]
                         ? chrome.i18n.getMessage("settingPageSettingGPTModelsFetchLoading")
                         : chrome.i18n.getMessage("settingPageSettingGPTModelsFetchBtn")}

@@ -1024,8 +1024,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             throw new Error(chrome.i18n.getMessage("gptMissingEndpointId"));
           }
           const state = store.getState() as AppStat;
-          const endpoint = state.gptEndpoints.find((item) => item.id === message.endpointId);
-          if (!endpoint) {
+          const endpoint =
+            state.gptEndpoints.find((item) => item.id === message.endpointId) ||
+            message.endpoint;
+          if (!endpoint || endpoint.id !== message.endpointId) {
             throw new Error(`Endpoint \"${message.endpointId}\" does not exist`);
           }
           if (!endpoint.baseUrl?.trim()) {
@@ -1053,8 +1055,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           }
           const capability = message.capability === "embedding" ? "embedding" : "chat";
           const state = store.getState() as AppStat;
-          const endpoint = state.gptEndpoints.find((item) => item.id === message.endpointId);
-          if (!endpoint) {
+          const endpoint =
+            state.gptEndpoints.find((item) => item.id === message.endpointId) ||
+            message.endpoint;
+          if (!endpoint || endpoint.id !== message.endpointId) {
             throw new Error(`Endpoint \"${message.endpointId}\" does not exist`);
           }
           if (!endpoint.capabilities.includes(capability)) {
@@ -1067,13 +1071,15 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             throw new Error(`Endpoint \"${endpoint.name}\" is missing API key`);
           }
 
-          const chatModel = resolveModelForEndpoint(endpoint, "chat", state.gptDefaultModels);
-          const embeddingModel = resolveModelForEndpoint(endpoint, "embedding", state.gptDefaultModels);
+          const defaultModels = message.defaultModels || state.gptDefaultModels;
+          const promptTemplate = message.promptTemplate || state.gptPromptTemplate;
+          const chatModel = resolveModelForEndpoint(endpoint, "chat", defaultModels);
+          const embeddingModel = resolveModelForEndpoint(endpoint, "embedding", defaultModels);
 
           initApi(endpoint.apiKey, endpoint.baseUrl, {
             chatModel,
             embeddingModel,
-            promptTemplate: state.gptPromptTemplate,
+            promptTemplate,
           });
 
           if (capability === "chat") {

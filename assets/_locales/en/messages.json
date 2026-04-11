@@ -105,6 +105,122 @@
     "message": "Settings",
     "description": "Search button."
   },
+  "popupRulePanelTitle": {
+    "message": "Search Engine Rule Helper",
+    "description": "Popup search engine rule panel title."
+  },
+  "popupRulePanelExpand": {
+    "message": "Expand Rule Helper",
+    "description": "Expand popup rule panel button."
+  },
+  "popupRulePanelCollapse": {
+    "message": "Collapse Rule Helper",
+    "description": "Collapse popup rule panel button."
+  },
+  "popupRulePanelTestSavedBtn": {
+    "message": "Test Saved Rules",
+    "description": "Test saved custom search engine rules on current page."
+  },
+  "popupRulePanelNoSavedRules": {
+    "message": "There are no saved custom search engine rules yet.",
+    "description": "No saved popup custom rules message."
+  },
+  "popupRulePanelOpenSettings": {
+    "message": "Open settings to edit",
+    "description": "Open settings page from popup rule panel."
+  },
+  "popupRulePanelSavedRulesMatchedTitle": {
+    "message": "Matched rules",
+    "description": "Matched saved rules title."
+  },
+  "popupRulePanelSavedRulesUnmatchedTitle": {
+    "message": "Unmatched rules",
+    "description": "Unmatched saved rules title."
+  },
+  "popupRulePanelSavedRulesNoneMatched": {
+    "message": "No saved rules fully matched the current page.",
+    "description": "No saved rules matched current page."
+  },
+  "popupRulePanelSavedRulesUnavailable": {
+    "message": "Unable to test saved rules.",
+    "description": "Saved rules test unavailable message."
+  },
+  "popupRulePanelSavedRulesNoneUnmatched": {
+    "message": "All saved rules that were tested matched successfully.",
+    "description": "No unmatched saved rules message."
+  },
+  "popupRulePanelRuleLabel": {
+    "message": "Rule",
+    "description": "Rule label in popup saved rules output."
+  },
+  "popupRulePanelNoIssues": {
+    "message": "None",
+    "description": "No issues label."
+  },
+  "popupRulePanelNoSuggestions": {
+    "message": "None",
+    "description": "No suggestions label."
+  },
+  "popupRulePanelSavedRulesIssuesLabel": {
+    "message": "Issues",
+    "description": "Issues label for saved rules diagnostics."
+  },
+  "popupRulePanelSavedRulesSuggestionsLabel": {
+    "message": "Suggestions",
+    "description": "Suggestions label for saved rules diagnostics."
+  },
+  "popupRulePanelSavedRulesStatusLabel": {
+    "message": "Status",
+    "description": "Status label for saved rules diagnostics."
+  },
+  "popupRulePanelOpenSettingsHint": {
+    "message": "Need full JSON editing? Open Settings and continue in the Custom Search Engine Rules section.",
+    "description": "Hint for opening settings page from popup."
+  },
+  "popupRulePanelSavedRulesSummary": {
+    "message": "Saved rules tested: $1 total / $2 matched / $3 unmatched",
+    "description": "Saved rules overview summary in popup diagnostics."
+  },
+  "popupRulePanelSavedRulesMatchedDivider": {
+    "message": "---------------- Matched details ----------------",
+    "description": "Divider before matched saved rules details."
+  },
+  "popupRulePanelSavedRulesMatchedCollapsed": {
+    "message": "Collapsed. Use the button on the right to view matched rule details.",
+    "description": "Collapsed hint for matched saved rules details."
+  },
+  "popupRulePanelSavedRulesShowMatchedBtn": {
+    "message": "Show",
+    "description": "Show matched saved rules details button label."
+  },
+  "popupRulePanelSavedRulesHideMatchedBtn": {
+    "message": "Hide",
+    "description": "Hide matched saved rules details button label."
+  },
+  "popupRulePanelSavedRulesUnmatchedDivider": {
+    "message": "---------------- Unmatched details ----------------",
+    "description": "Divider before unmatched saved rules details."
+  },
+  "popupRulePanelSavedRulesUnmatchedCollapsed": {
+    "message": "Collapsed. Use the button on the right to view unmatched rule details.",
+    "description": "Collapsed hint for unmatched saved rules details."
+  },
+  "popupRulePanelSavedRulesShowUnmatchedBtn": {
+    "message": "Show",
+    "description": "Show unmatched saved rules details button label."
+  },
+  "popupRulePanelSavedRulesHideUnmatchedBtn": {
+    "message": "Hide",
+    "description": "Hide unmatched saved rules details button label."
+  },
+  "popupRulePanelSavedRulesReasonLabel": {
+    "message": "Failure reason",
+    "description": "Failure reason label for unmatched saved rules."
+  },
+  "popupRulePanelSavedRulesReasonUnknown": {
+    "message": "Could not determine a specific failed check",
+    "description": "Fallback failure reason for unmatched saved rules."
+  },
   "settingPageNavGPT": {
     "message": "GPT Settings",
     "description": "Search button."
