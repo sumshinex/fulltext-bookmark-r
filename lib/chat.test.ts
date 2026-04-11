@@ -1,7 +1,11 @@
 import { describe, expect, it, vi } from "vitest"
 import {
+  buildEmbeddingsUrl,
   buildModelsUrl,
+  chat,
   executeWithEndpointFallback,
+  genEmbedding,
+  initApi,
   normalizeApiBaseUrl,
   resolveEndpointBinding,
   resolveModelForEndpoint,
@@ -18,6 +22,68 @@ describe("chat orchestration helpers", () => {
     expect(buildModelsUrl("https://api.openai.com/v1/models")).toBe(
       "https://api.openai.com/v1/models"
     )
+    expect(buildEmbeddingsUrl("https://api.openai.com/v1/embeddings")).toBe(
+      "https://api.openai.com/v1/embeddings"
+    )
+  })
+
+  it("posts embeddings to the embeddings endpoint directly", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        data: [{ embedding: [0.1, 0.2, 0.3] }],
+      }),
+    })
+    vi.stubGlobal("fetch", fetchMock)
+
+    initApi("test-key", "https://embedding.example.com/v1", {
+      embeddingModel: "custom-embedding-model",
+    })
+
+    await expect(genEmbedding("hello")).resolves.toEqual([0.1, 0.2, 0.3])
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://embedding.example.com/v1/embeddings",
+      expect.objectContaining({
+        method: "POST",
+        headers: expect.objectContaining({
+          Authorization: "Bearer test-key",
+        }),
+      })
+    )
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({
+      model: "custom-embedding-model",
+      input: "hello",
+    })
+  })
+
+  it("posts chat completions directly and reads standard content", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        choices: [{ message: { content: "Hello back" } }],
+      }),
+    })
+    vi.stubGlobal("fetch", fetchMock)
+
+    initApi("chat-key", "https://chat.example.com/v1", {
+      chatModel: "custom-chat-model",
+    })
+
+    await expect(chat("Say hello")).resolves.toBe("Hello back")
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://chat.example.com/v1/chat/completions",
+      expect.objectContaining({
+        method: "POST",
+        headers: expect.objectContaining({
+          Authorization: "Bearer chat-key",
+        }),
+      })
+    )
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({
+      model: "custom-chat-model",
+      messages: [{ role: "user", content: "Say hello" }],
+      stream: false,
+    })
   })
 
   it("resolves available endpoints for a capability binding chain", () => {

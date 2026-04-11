@@ -481,6 +481,38 @@
     "message": "备份和恢复你的数据",
     "description": "Import and export data notes."
   },
+  "settingPageDataManagementImporting": {
+    "message": "导入中...",
+    "description": "Data import running text."
+  },
+  "settingPageSettingsBackupTitle": {
+    "message": "设置备份",
+    "description": "Settings backup section title."
+  },
+  "settingPageSettingsBackupDesc": {
+    "message": "单独导入和导出设置",
+    "description": "Settings backup section description."
+  },
+  "settingPageSettingsBackupNote": {
+    "message": "包含自定义搜索引擎、GPT 端点、绑定、默认模型与其他设置项，不包含已索引页面数据。",
+    "description": "Settings backup section note."
+  },
+  "settingPageSettingsBackupImportBtn": {
+    "message": "导入设置",
+    "description": "Import settings backup button."
+  },
+  "settingPageSettingsBackupExportBtn": {
+    "message": "导出设置",
+    "description": "Export settings backup button."
+  },
+  "settingPageSettingsBackupRunning": {
+    "message": "处理中...",
+    "description": "Settings backup running text."
+  },
+  "settingPageSettingsBackupRestoreSuccess": {
+    "message": "设置恢复成功，页面即将刷新。",
+    "description": "Settings backup restore success message."
+  },
   "settingPageSettingIndexSizeClearAlert": {
     "message": "数据清除完毕 （剩余数据为拓展运行必需的数据）",
     "description": "Search button."

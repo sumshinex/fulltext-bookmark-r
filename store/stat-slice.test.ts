@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest"
 import reducer, {
   addGptEndpoint,
+  buildSettingsBackupData,
+  getDefaultSettingsBackupData,
+  normalizeSettingsBackupData,
   removeGptEndpoint,
   setAvailableModelsForEndpoint,
   setGptBindings,
@@ -168,5 +171,95 @@ describe("stat slice GPT orchestration state", () => {
       lastOperationMessage: "Backup completed",
     })
     expect(state.gptEndpoints).toEqual([])
+  })
+
+  it("builds settings-only backup data without runtime fields", () => {
+    const endpoint: ApiEndpoint = {
+      id: "ep-1",
+      name: "Primary",
+      baseUrl: "https://api.example.com/v1",
+      apiKey: "secret",
+      enabled: true,
+      capabilities: ["chat", "embedding"],
+    }
+
+    let state = reducer(undefined, addGptEndpoint(endpoint))
+    state = reducer(state, setGptBindings({ chat: ["ep-1"], embedding: ["ep-1"] }))
+    state = reducer(
+      state,
+      setAvailableModelsForEndpoint({ endpointId: "ep-1", models: ["gpt-4o-mini"] })
+    )
+
+    const backup = buildSettingsBackupData(state)
+
+    expect(backup.gptEndpoints).toEqual([endpoint])
+    expect(backup.gptBindings).toEqual({ chat: ["ep-1"], embedding: ["ep-1"] })
+    expect("gptAvailableModelsByEndpoint" in backup).toBe(false)
+    expect("GPTQuery" in backup).toBe(false)
+    expect("webdavStatus" in backup).toBe(false)
+  })
+
+  it("normalizes imported settings backups and drops invalid bindings", () => {
+    const defaults = getDefaultSettingsBackupData()
+    const normalized = normalizeSettingsBackupData({
+      remoteStoreURL: " https://remote.example.com/api ",
+      maxResults: 0,
+      forbiddenURLs: ["https://keep.example.com/*", "", 123 as never],
+      gptEndpoints: [
+        {
+          id: "ep-1",
+          name: "  Endpoint 1  ",
+          baseUrl: " https://api.example.com/v1 ",
+          apiKey: "key-1",
+          enabled: true,
+          capabilities: ["chat", "invalid" as never],
+          modelOverrides: {
+            chat: " gpt-4.1-mini ",
+            embedding: "   ",
+          },
+        },
+        {
+          id: "ep-2",
+          name: "",
+          baseUrl: "",
+          apiKey: "",
+          enabled: true,
+          capabilities: [],
+        },
+      ],
+      gptBindings: {
+        chat: ["ep-1", "missing"],
+        embedding: ["missing"],
+      },
+      webdavConfig: {
+        baseUrl: " https://dav.example.com/backup/ ",
+        username: " alice ",
+        autoBackupIntervalHours: 0,
+        retentionCount: 0,
+      },
+    })
+
+    expect(normalized.remoteStoreURL).toBe("https://remote.example.com/api")
+    expect(normalized.maxResults).toBe(defaults.maxResults)
+    expect(normalized.forbiddenURLs).toEqual(["https://keep.example.com/*"])
+    expect(normalized.gptEndpoints).toEqual([
+      {
+        id: "ep-1",
+        name: "Endpoint 1",
+        baseUrl: "https://api.example.com/v1",
+        apiKey: "key-1",
+        enabled: true,
+        capabilities: ["chat"],
+        modelOverrides: { chat: "gpt-4.1-mini" },
+      },
+    ])
+    expect(normalized.gptBindings).toEqual({ chat: ["ep-1"], embedding: [] })
+    expect(normalized.webdavConfig).toEqual({
+      ...defaults.webdavConfig,
+      baseUrl: "https://dav.example.com/backup/",
+      username: "alice",
+      autoBackupIntervalHours: defaults.webdavConfig.autoBackupIntervalHours,
+      retentionCount: defaults.webdavConfig.retentionCount,
+    })
   })
 })

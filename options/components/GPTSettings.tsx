@@ -294,6 +294,9 @@ export const GPTSettings = memo(({
       const response = await chrome.runtime.sendMessage({
         command: "gpt_fetch_binding_models",
         capability,
+        endpoints: gptEndpoints,
+        bindings: gptBindings,
+        defaultModels: gptDefaultModels,
       })
       const models = Array.isArray(response?.models) ? response.models : []
       if (!response?.ok) {
@@ -336,6 +339,10 @@ export const GPTSettings = memo(({
       const response = await chrome.runtime.sendMessage({
         command: "gpt_test_binding",
         capability,
+        endpoints: gptEndpoints,
+        bindings: gptBindings,
+        defaultModels: gptDefaultModels,
+        promptTemplate: gptPromptTemplate,
       })
       if (!response?.ok) {
         setBindingMessages((state) => ({

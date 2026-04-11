@@ -82,6 +82,36 @@ export interface AppStat {
   GPTSearchMaxNumber: number
 }
 
+export interface SettingsBackupData {
+  searchEngineAdaption: boolean
+  storeEveryPage: boolean
+  bookmarkAdaption: boolean
+  remoteStore: boolean
+  remoteStoreURL: string
+  showOnlyBookmarkedResults: boolean
+  remoteStoreEveryPage: boolean
+  tempPageExpireTime: number
+  maxResults: number
+  forbiddenURLs: string[]
+  weiboSupport: boolean
+  customSearchEngines: string
+  gptEndpoints: ApiEndpoint[]
+  gptBindings: EndpointBindings
+  gptDefaultModels: ModelDefaults
+  gptPromptTemplate: string
+  webdavConfig: WebdavConfig
+  showAskGPT: boolean
+}
+
+export interface SettingsBackupPayload {
+  schemaVersion: number
+  exportedAt: string
+  source: string
+  data: SettingsBackupData
+}
+
+export const SETTINGS_BACKUP_SCHEMA_VERSION = 1
+
 const defaultPromptTemplate =
   "Given the following extracted parts of a long document and a question, create a final helpful answer with references('SOURCES'). If you don't know the answer, just say that you don't know. Don't try to make up an answer.ALWAYS return a 'SOURCES' part in your answer.Reply example: \n{your answer}\n===\nSOURCES:{sources}"
 
@@ -134,6 +164,189 @@ const defaultWebdavStatus: WebdavStatus = {
   nextBackupAt: null,
   lastOperationStatus: "idle",
   lastOperationMessage: ""
+}
+
+export function getDefaultSettingsBackupData(): SettingsBackupData {
+  return {
+    searchEngineAdaption: true,
+    storeEveryPage: true,
+    bookmarkAdaption: true,
+    remoteStore: false,
+    remoteStoreURL: "",
+    showOnlyBookmarkedResults: false,
+    remoteStoreEveryPage: false,
+    tempPageExpireTime: 60 * 60 * 24 * 60 * 1000,
+    maxResults: 20,
+    forbiddenURLs: [
+      "https://www.google.com/*",
+      "https://www.bing.com/*",
+      "https://cn.bing.com/*",
+      "https://www.baidu.com/*",
+      "https://.*.something.com/*"
+    ],
+    weiboSupport: true,
+    customSearchEngines: defaultCustomSearchEngines,
+    gptEndpoints: [],
+    gptBindings: defaultBindings,
+    gptDefaultModels: defaultModelDefaults,
+    gptPromptTemplate: defaultPromptTemplate,
+    webdavConfig: defaultWebdavConfig,
+    showAskGPT: true,
+  }
+}
+
+export function buildSettingsBackupData(state: AppStat): SettingsBackupData {
+  return {
+    searchEngineAdaption: state.searchEngineAdaption,
+    storeEveryPage: state.storeEveryPage,
+    bookmarkAdaption: state.bookmarkAdaption,
+    remoteStore: state.remoteStore,
+    remoteStoreURL: state.remoteStoreURL,
+    showOnlyBookmarkedResults: state.showOnlyBookmarkedResults,
+    remoteStoreEveryPage: state.remoteStoreEveryPage,
+    tempPageExpireTime: state.tempPageExpireTime,
+    maxResults: state.maxResults,
+    forbiddenURLs: [...state.forbiddenURLs],
+    weiboSupport: state.weiboSupport,
+    customSearchEngines: state.customSearchEngines,
+    gptEndpoints: state.gptEndpoints.map((endpoint) => ({
+      ...endpoint,
+      capabilities: [...endpoint.capabilities],
+      modelOverrides: endpoint.modelOverrides
+        ? { ...endpoint.modelOverrides }
+        : undefined,
+    })),
+    gptBindings: {
+      chat: [...state.gptBindings.chat],
+      embedding: [...state.gptBindings.embedding],
+    },
+    gptDefaultModels: { ...state.gptDefaultModels },
+    gptPromptTemplate: state.gptPromptTemplate,
+    webdavConfig: { ...state.webdavConfig },
+    showAskGPT: state.showAskGPT,
+  }
+}
+
+export function buildSettingsBackupPayload(state: AppStat): SettingsBackupPayload {
+  return {
+    schemaVersion: SETTINGS_BACKUP_SCHEMA_VERSION,
+    exportedAt: new Date().toISOString(),
+    source: "fulltext-bookmark-main",
+    data: buildSettingsBackupData(state),
+  }
+}
+
+export function normalizeSettingsBackupData(
+  input:
+    | (Omit<Partial<SettingsBackupData>, "gptBindings" | "gptDefaultModels" | "webdavConfig"> & {
+        gptBindings?: Partial<EndpointBindings>
+        gptDefaultModels?: Partial<ModelDefaults>
+        webdavConfig?: Partial<WebdavConfig>
+      })
+    | undefined
+): SettingsBackupData {
+  const defaults = getDefaultSettingsBackupData()
+  const gptEndpoints = Array.isArray(input?.gptEndpoints)
+    ? input.gptEndpoints
+        .filter((endpoint): endpoint is ApiEndpoint => Boolean(endpoint?.id))
+        .map((endpoint) => ({
+          ...endpoint,
+          name: (endpoint.name || endpoint.id).trim(),
+          baseUrl: (endpoint.baseUrl || "").trim(),
+          apiKey: endpoint.apiKey || "",
+          enabled: endpoint.enabled !== false,
+          capabilities: Array.isArray(endpoint.capabilities)
+            ? endpoint.capabilities.filter(
+                (capability): capability is EndpointCapability =>
+                  capability === "chat" || capability === "embedding"
+              )
+            : [],
+          modelOverrides: endpoint.modelOverrides
+            ? {
+                ...(endpoint.modelOverrides.chat?.trim()
+                  ? { chat: endpoint.modelOverrides.chat.trim() }
+                  : {}),
+                ...(endpoint.modelOverrides.embedding?.trim()
+                  ? { embedding: endpoint.modelOverrides.embedding.trim() }
+                  : {}),
+              }
+            : undefined,
+        }))
+        .filter((endpoint) => endpoint.capabilities.length > 0)
+    : defaults.gptEndpoints
+
+  const validEndpointIds = new Set(gptEndpoints.map((endpoint) => endpoint.id))
+  const normalizeBindingIds = (ids: unknown) =>
+    Array.isArray(ids)
+      ? ids.filter(
+          (id): id is string => typeof id === "string" && validEndpointIds.has(id)
+        )
+      : []
+
+  return {
+    searchEngineAdaption: input?.searchEngineAdaption ?? defaults.searchEngineAdaption,
+    storeEveryPage: input?.storeEveryPage ?? defaults.storeEveryPage,
+    bookmarkAdaption: input?.bookmarkAdaption ?? defaults.bookmarkAdaption,
+    remoteStore: input?.remoteStore ?? defaults.remoteStore,
+    remoteStoreURL: (input?.remoteStoreURL || defaults.remoteStoreURL).trim(),
+    showOnlyBookmarkedResults:
+      input?.showOnlyBookmarkedResults ?? defaults.showOnlyBookmarkedResults,
+    remoteStoreEveryPage: input?.remoteStoreEveryPage ?? defaults.remoteStoreEveryPage,
+    tempPageExpireTime:
+      typeof input?.tempPageExpireTime === "number" && input.tempPageExpireTime >= 0
+        ? input.tempPageExpireTime
+        : defaults.tempPageExpireTime,
+    maxResults:
+      typeof input?.maxResults === "number" && input.maxResults > 0
+        ? input.maxResults
+        : defaults.maxResults,
+    forbiddenURLs: Array.isArray(input?.forbiddenURLs)
+      ? input.forbiddenURLs.filter(
+          (url): url is string => typeof url === "string" && url.trim().length > 0
+        )
+      : defaults.forbiddenURLs,
+    weiboSupport: input?.weiboSupport ?? defaults.weiboSupport,
+    customSearchEngines: input?.customSearchEngines || defaults.customSearchEngines,
+    gptEndpoints,
+    gptBindings: {
+      chat: normalizeBindingIds(input?.gptBindings?.chat),
+      embedding: normalizeBindingIds(input?.gptBindings?.embedding),
+    },
+    gptDefaultModels: {
+      chat: input?.gptDefaultModels?.chat?.trim() || defaults.gptDefaultModels.chat,
+      embedding:
+        input?.gptDefaultModels?.embedding?.trim() ||
+        defaults.gptDefaultModels.embedding,
+    },
+    gptPromptTemplate: input?.gptPromptTemplate || defaults.gptPromptTemplate,
+    webdavConfig: {
+      ...defaults.webdavConfig,
+      ...input?.webdavConfig,
+      baseUrl: (input?.webdavConfig?.baseUrl || defaults.webdavConfig.baseUrl).trim(),
+      username: (input?.webdavConfig?.username || defaults.webdavConfig.username).trim(),
+      password: input?.webdavConfig?.password || defaults.webdavConfig.password,
+      fileName:
+        (input?.webdavConfig?.fileName || defaults.webdavConfig.fileName).trim() ||
+        defaults.webdavConfig.fileName,
+      autoBackupEnabled:
+        input?.webdavConfig?.autoBackupEnabled ?? defaults.webdavConfig.autoBackupEnabled,
+      autoBackupMode:
+        input?.webdavConfig?.autoBackupMode === "interval" ? "interval" : "daily_time",
+      autoBackupTime:
+        (input?.webdavConfig?.autoBackupTime || defaults.webdavConfig.autoBackupTime).trim() ||
+        defaults.webdavConfig.autoBackupTime,
+      autoBackupIntervalHours: Math.max(
+        1,
+        input?.webdavConfig?.autoBackupIntervalHours ||
+          defaults.webdavConfig.autoBackupIntervalHours
+      ),
+      retentionCount: Math.max(
+        1,
+        input?.webdavConfig?.retentionCount || defaults.webdavConfig.retentionCount
+      ),
+    },
+    showAskGPT: input?.showAskGPT ?? defaults.showAskGPT,
+  }
 }
 
 const removeEndpointFromBindings = (
@@ -199,6 +412,9 @@ const statSlice = createSlice({
     addGptEndpoint: (state, action) => {
       state.gptEndpoints.push(action.payload)
     },
+    replaceGptEndpoints: (state, action) => {
+      state.gptEndpoints = action.payload
+    },
     updateGptEndpoint: (state, action) => {
       const nextEndpoint = action.payload
       state.gptEndpoints = state.gptEndpoints.map((endpoint) =>
@@ -212,6 +428,12 @@ const statSlice = createSlice({
       )
       state.gptBindings = removeEndpointFromBindings(state.gptBindings, endpointId)
       delete state.gptAvailableModelsByEndpoint[endpointId]
+    },
+    replaceAvailableModelsByEndpoint: (state, action) => {
+      state.gptAvailableModelsByEndpoint = action.payload
+    },
+    clearAvailableModelsForAllEndpoints: (state) => {
+      state.gptAvailableModelsByEndpoint = {}
     },
     toggleGptEndpointEnabled: (state, action) => {
       const endpointId = action.payload
@@ -301,6 +523,7 @@ export const {
   setMaxResults,
   toggleWeiboSupport,
   addGptEndpoint,
+  replaceGptEndpoints,
   updateGptEndpoint,
   removeGptEndpoint,
   toggleGptEndpointEnabled,
@@ -308,6 +531,8 @@ export const {
   setGptDefaultModels,
   setGptPromptTemplate,
   setAvailableModelsForEndpoint,
+  replaceAvailableModelsByEndpoint,
+  clearAvailableModelsForAllEndpoints,
   setWebdavConfig,
   setWebdavStatus,
   setGPTQuery,

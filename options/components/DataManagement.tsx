@@ -1,4 +1,5 @@
 import { useRef, useState } from "react"
+import download from "downloadjs"
 import { SettingBlock } from "../SettingBlock"
 import { SettingItemCol } from "../SettingItemCol"
 import { handleExportExcel, handleFileUpload } from "../utils/csvUtils"
@@ -67,10 +68,75 @@ export const DataManagement = ({
   handleSetWebdavStatus,
 }: DataManagementProps) => {
   const csvFileInputRef = useRef<HTMLInputElement>(null)
+  const settingsFileInputRef = useRef<HTMLInputElement>(null)
   const [isImporting, setIsImporting] = useState(false)
+  const [isSettingsBusy, setIsSettingsBusy] = useState(false)
 
   const handleImportCSV = () => {
     csvFileInputRef.current?.click()
+  }
+
+  const handleImportSettings = () => {
+    settingsFileInputRef.current?.click()
+  }
+
+  const handleExportSettings = async () => {
+    setIsSettingsBusy(true)
+    try {
+      const response = await chrome.runtime.sendMessage({ command: "export_settings" })
+      if (!response?.ok || !response.payload) {
+        throw new Error(response?.error || "settings export failed")
+      }
+
+      const exportedAt = response.payload.exportedAt || new Date().toISOString()
+      const safeTimestamp = String(exportedAt)
+        .replace(/[:]/g, "-")
+        .replace(/\.\d{3}Z$/, "Z")
+      const blob = new Blob([JSON.stringify(response.payload, null, 2)], {
+        type: "application/json;charset=utf-8",
+      })
+
+      download(
+        blob,
+        `fulltext-bookmark-settings-backup-${safeTimestamp}.json`,
+        "application/json;charset=utf-8"
+      )
+    } catch (error) {
+      alert(error instanceof Error ? error.message : "settings export failed")
+    } finally {
+      setIsSettingsBusy(false)
+    }
+  }
+
+  const handleSettingsFileChange = async (
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const file = e.target.files?.[0]
+    e.target.value = ""
+    if (!file) {
+      return
+    }
+
+    setIsSettingsBusy(true)
+    try {
+      const text = await file.text()
+      const payload = JSON.parse(text)
+      const response = await chrome.runtime.sendMessage({
+        command: "import_settings",
+        payload,
+      })
+
+      if (!response?.ok) {
+        throw new Error(response?.error || "settings import failed")
+      }
+
+      window.alert(chrome.i18n.getMessage("settingPageSettingsBackupRestoreSuccess"))
+      window.location.reload()
+    } catch (error) {
+      alert(error instanceof Error ? error.message : "settings import failed")
+    } finally {
+      setIsSettingsBusy(false)
+    }
   }
 
   return (
@@ -98,7 +164,7 @@ export const DataManagement = ({
             {isImporting && (
               <div className="flex items-center">
                 <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-500 mr-2"></div>
-                <span>Importing...</span>
+                <span>{chrome.i18n.getMessage("settingPageDataManagementImporting")}</span>
               </div>
             )}
           </div>
@@ -119,6 +185,44 @@ export const DataManagement = ({
           />
         </SettingItemCol>
       </SettingBlock>
+
+      <SettingBlock title={chrome.i18n.getMessage("settingPageSettingsBackupTitle")}>
+        <SettingItemCol
+          description={chrome.i18n.getMessage("settingPageSettingsBackupDesc")}
+          notes={chrome.i18n.getMessage("settingPageSettingsBackupNote")}
+        >
+          <div className="flex gap-4 items-center flex-wrap">
+            <button
+              className="text-blue-500 text-lg"
+              onClick={handleImportSettings}
+              disabled={isSettingsBusy}
+            >
+              {chrome.i18n.getMessage("settingPageSettingsBackupImportBtn")}
+            </button>
+            <button
+              className="text-blue-500 text-lg"
+              onClick={handleExportSettings}
+              disabled={isSettingsBusy}
+            >
+              {chrome.i18n.getMessage("settingPageSettingsBackupExportBtn")}
+            </button>
+            {isSettingsBusy && (
+              <div className="flex items-center">
+                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-500 mr-2"></div>
+                <span>{chrome.i18n.getMessage("settingPageSettingsBackupRunning")}</span>
+              </div>
+            )}
+          </div>
+          <input
+            type="file"
+            accept=".json"
+            ref={settingsFileInputRef}
+            style={{ display: "none" }}
+            onChange={handleSettingsFileChange}
+          />
+        </SettingItemCol>
+      </SettingBlock>
+
       <WebDAVBackupSettings
         webdavConfig={webdavConfig}
         webdavStatus={webdavStatus}

@@ -38,13 +38,34 @@ import {
 import { textSplitter } from "~lib/textsplitter-utils";
 
 import {
+  buildSettingsBackupPayload,
+  clearAvailableModelsForAllEndpoints,
+  normalizeSettingsBackupData,
+  replaceGptEndpoints,
+  setCustomSearchEngines,
+  setForbiddenURLs,
   setGPTAnswer,
   setGPTLoading,
   setGPTQuery,
+  setGptBindings,
+  setGptDefaultModels,
+  setGptPromptTemplate,
+  setMaxResults,
+  setRemoteStoreURL,
+  setTempPageExpireTime,
   setWebdavConfig,
   setWebdavStatus,
+  toggleBookmarkAdaption,
+  toggleRemoteStore,
+  toggleRemoteStoreEveryPage,
+  toggleSearchEngineAdaption,
+  toggleShowAskGPT,
+  toggleShowOnlyBookmarkedResults,
+  toggleStoreEveryPage,
+  toggleWeiboSupport,
   type AppStat,
   type EndpointCapability,
+  type SettingsBackupPayload,
   type WebdavConfig,
   type WebdavStatus,
 } from "~store/stat-slice";
@@ -327,16 +348,26 @@ async function runWithCapabilityEndpoint<T>(
     chatModel: string;
     embeddingModel: string;
     promptTemplate: string;
-  }) => Promise<T>
+  }) => Promise<T>,
+  overrides?: {
+    endpoints?: AppStat["gptEndpoints"];
+    bindings?: AppStat["gptBindings"];
+    defaultModels?: AppStat["gptDefaultModels"];
+    promptTemplate?: AppStat["gptPromptTemplate"];
+  }
 ) {
   const state = store.getState() as AppStat
+  const endpoints = overrides?.endpoints || state.gptEndpoints
+  const bindings = overrides?.bindings || state.gptBindings
+  const defaultModels = overrides?.defaultModels || state.gptDefaultModels
+  const promptTemplate = overrides?.promptTemplate || state.gptPromptTemplate
 
   return executeWithEndpointFallback(
     {
       capability,
-      endpoints: state.gptEndpoints,
-      bindings: state.gptBindings,
-      defaultModels: state.gptDefaultModels,
+      endpoints,
+      bindings,
+      defaultModels,
     },
     async ({ endpoint, model }) => {
       const config = {
@@ -347,12 +378,12 @@ async function runWithCapabilityEndpoint<T>(
         chatModel:
           capability === "chat"
             ? model
-            : resolveModelForEndpoint(endpoint, "chat", state.gptDefaultModels),
+            : resolveModelForEndpoint(endpoint, "chat", defaultModels),
         embeddingModel:
           capability === "embedding"
             ? model
-            : resolveModelForEndpoint(endpoint, "embedding", state.gptDefaultModels),
-        promptTemplate: state.gptPromptTemplate,
+            : resolveModelForEndpoint(endpoint, "embedding", defaultModels),
+        promptTemplate,
       }
 
       initApi(config.apiKey, config.baseUrl, {
@@ -366,13 +397,20 @@ async function runWithCapabilityEndpoint<T>(
   )
 }
 
-async function fetchModelsFromCapabilityBinding(capability: EndpointCapability) {
+async function fetchModelsFromCapabilityBinding(
+  capability: EndpointCapability,
+  overrides?: {
+    endpoints?: AppStat["gptEndpoints"];
+    bindings?: AppStat["gptBindings"];
+    defaultModels?: AppStat["gptDefaultModels"];
+  }
+) {
   const state = store.getState() as AppStat
   const resolution = resolveEndpointBinding({
     capability,
-    endpoints: state.gptEndpoints,
-    bindings: state.gptBindings,
-    defaultModels: state.gptDefaultModels,
+    endpoints: overrides?.endpoints || state.gptEndpoints,
+    bindings: overrides?.bindings || state.gptBindings,
+    defaultModels: overrides?.defaultModels || state.gptDefaultModels,
   })
 
   if (resolution.availableEndpoints.length === 0) {
@@ -508,9 +546,7 @@ async function scheduleWebdavAutoBackup(configInput?: Partial<WebdavConfig>) {
   await updateWebdavStatus({ nextBackupAt: when })
 }
 
-async function readExportedDatabaseJson() {
-  const blob = await db.export()
-
+async function readBlobAsJson(blob: Blob) {
   return await new Promise<any>((resolve, reject) => {
     const reader = new FileReader()
     reader.onload = function () {
@@ -524,6 +560,33 @@ async function readExportedDatabaseJson() {
     reader.onerror = () => reject(reader.error)
     reader.readAsText(blob, "utf-8")
   })
+}
+
+async function readExportedDatabaseJson() {
+  const blob = await db.export()
+  return readBlobAsJson(blob)
+}
+
+function parseSettingsBackupPayload(payload: unknown): SettingsBackupPayload {
+  if (!payload || typeof payload !== "object") {
+    throw new Error("设置备份文件结构无效")
+  }
+
+  const candidate = payload as Partial<SettingsBackupPayload>
+  if (!candidate.data || typeof candidate.data !== "object") {
+    throw new Error("设置备份文件缺少 data 字段")
+  }
+
+  return {
+    schemaVersion:
+      typeof candidate.schemaVersion === "number" ? candidate.schemaVersion : 1,
+    exportedAt:
+      typeof candidate.exportedAt === "string"
+        ? candidate.exportedAt
+        : new Date().toISOString(),
+    source: typeof candidate.source === "string" ? candidate.source : "unknown",
+    data: normalizeSettingsBackupData(candidate.data),
+  }
 }
 
 async function buildWebdavBackupPayload(): Promise<WebdavBackupPayload> {
@@ -776,6 +839,62 @@ async function exportBackupToWebdav(configInput: Partial<WebdavConfig>) {
   }
 }
 
+async function applySettingsBackupData(payload: SettingsBackupPayload) {
+  const nextSettings = normalizeSettingsBackupData(payload.data)
+  const currentState = store.getState() as AppStat
+
+  if (currentState.searchEngineAdaption !== nextSettings.searchEngineAdaption) {
+    store.dispatch(toggleSearchEngineAdaption())
+  }
+  if (currentState.storeEveryPage !== nextSettings.storeEveryPage) {
+    store.dispatch(toggleStoreEveryPage())
+  }
+  if (currentState.bookmarkAdaption !== nextSettings.bookmarkAdaption) {
+    store.dispatch(toggleBookmarkAdaption())
+  }
+  if (currentState.remoteStore !== nextSettings.remoteStore) {
+    store.dispatch(toggleRemoteStore())
+  }
+  if (currentState.showOnlyBookmarkedResults !== nextSettings.showOnlyBookmarkedResults) {
+    store.dispatch(toggleShowOnlyBookmarkedResults())
+  }
+  if (currentState.remoteStoreEveryPage !== nextSettings.remoteStoreEveryPage) {
+    store.dispatch(toggleRemoteStoreEveryPage())
+  }
+  if (currentState.weiboSupport !== nextSettings.weiboSupport) {
+    store.dispatch(toggleWeiboSupport())
+  }
+  if (currentState.showAskGPT !== nextSettings.showAskGPT) {
+    store.dispatch(toggleShowAskGPT())
+  }
+
+  store.dispatch(setRemoteStoreURL(nextSettings.remoteStoreURL))
+  store.dispatch(setTempPageExpireTime(nextSettings.tempPageExpireTime))
+  store.dispatch(setMaxResults(nextSettings.maxResults))
+  store.dispatch(setForbiddenURLs(nextSettings.forbiddenURLs))
+  store.dispatch(setCustomSearchEngines(nextSettings.customSearchEngines))
+  store.dispatch(replaceGptEndpoints(nextSettings.gptEndpoints))
+  store.dispatch(setGptBindings(nextSettings.gptBindings))
+  store.dispatch(setGptDefaultModels(nextSettings.gptDefaultModels))
+  store.dispatch(setGptPromptTemplate(nextSettings.gptPromptTemplate))
+  store.dispatch(setWebdavConfig(nextSettings.webdavConfig))
+  store.dispatch(clearAvailableModelsForAllEndpoints())
+
+  userOps = store.getState()
+
+  await updateWebdavStatus({
+    lastOperationStatus: "idle",
+    lastOperationMessage: "",
+  })
+
+  userOps = store.getState()
+
+  await persistor.flush()
+  await scheduleWebdavAutoBackup(nextSettings.webdavConfig)
+
+  return nextSettings
+}
+
 async function restoreBackupFromWebdav(
   configInput: Partial<WebdavConfig>,
   backupFileName?: string
@@ -1004,7 +1123,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       (async () => {
         try {
           const capability = message.capability === "embedding" ? "embedding" : "chat";
-          const result = await fetchModelsFromCapabilityBinding(capability);
+          const result = await fetchModelsFromCapabilityBinding(capability, {
+            endpoints: message.endpoints,
+            bindings: message.bindings,
+            defaultModels: message.defaultModels,
+          });
           sendResponse({ ok: true, ...result });
         } catch (error) {
           sendResponse({
@@ -1121,6 +1244,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
               endpointName: config.endpointName,
               model: config.embeddingModel,
             };
+          }, {
+            endpoints: message.endpoints,
+            bindings: message.bindings,
+            defaultModels: message.defaultModels,
+            promptTemplate: message.promptTemplate,
           });
           sendResponse(result);
         } catch (error) {
@@ -1207,6 +1335,33 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         // @ts-ignore
         await db.contents.clear();
         sendResponse("ok");
+      })();
+      return true;
+    case "export_settings":
+      (async () => {
+        try {
+          const payload = buildSettingsBackupPayload(store.getState() as AppStat)
+          sendResponse({ ok: true, payload })
+        } catch (error) {
+          sendResponse({
+            ok: false,
+            error: error instanceof Error ? error.message : "settings export failed",
+          })
+        }
+      })();
+      return true;
+    case "import_settings":
+      (async () => {
+        try {
+          const payload = parseSettingsBackupPayload(message.payload)
+          await applySettingsBackupData(payload)
+          sendResponse({ ok: true })
+        } catch (error) {
+          sendResponse({
+            ok: false,
+            error: error instanceof Error ? error.message : "settings import failed",
+          })
+        }
       })();
       return true;
     case "export":

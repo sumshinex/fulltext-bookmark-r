@@ -481,6 +481,38 @@
     "message": "Backup and restore your data",
     "description": "Import and export data notes."
   },
+  "settingPageDataManagementImporting": {
+    "message": "Importing...",
+    "description": "Data import running text."
+  },
+  "settingPageSettingsBackupTitle": {
+    "message": "Settings Backup",
+    "description": "Settings backup section title."
+  },
+  "settingPageSettingsBackupDesc": {
+    "message": "Import and export settings separately",
+    "description": "Settings backup section description."
+  },
+  "settingPageSettingsBackupNote": {
+    "message": "Includes custom search engines, GPT endpoints, bindings, default models, and other settings, but excludes indexed page data.",
+    "description": "Settings backup section note."
+  },
+  "settingPageSettingsBackupImportBtn": {
+    "message": "Import Settings",
+    "description": "Import settings backup button."
+  },
+  "settingPageSettingsBackupExportBtn": {
+    "message": "Export Settings",
+    "description": "Export settings backup button."
+  },
+  "settingPageSettingsBackupRunning": {
+    "message": "Processing...",
+    "description": "Settings backup running text."
+  },
+  "settingPageSettingsBackupRestoreSuccess": {
+    "message": "Settings restored successfully. The page will now reload.",
+    "description": "Settings backup restore success message."
+  },
   "settingPageSettingIndexSizeClearAlert": {
     "message": "Data clear finished (the rest is the necessary data for extension).",
     "description": "Search button."

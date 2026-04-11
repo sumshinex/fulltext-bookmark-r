@@ -60,6 +60,8 @@ export async function executeWithEndpointFallback<T>(
 }
 
 let api
+let apiKey = ""
+let apiBaseUrl = ""
 let chatModel = "gpt-3.5-turbo"
 let embeddingModel = "text-embedding-3-small"
 let promptTemplate =
@@ -84,6 +86,11 @@ export function buildModelsUrl(url: string) {
 export function buildChatCompletionUrl(url: string) {
   const baseUrl = normalizeApiBaseUrl(url)
   return baseUrl ? `${baseUrl}/chat/completions` : ""
+}
+
+export function buildEmbeddingsUrl(url: string) {
+  const baseUrl = normalizeApiBaseUrl(url)
+  return baseUrl ? `${baseUrl}/embeddings` : ""
 }
 
 export function resolveModelForEndpoint(
@@ -186,6 +193,8 @@ export function initApi(
   }
 ) {
   const baseUrl = normalizeApiBaseUrl(url)
+  apiKey = key
+  apiBaseUrl = baseUrl
   api = new Api2d(key, baseUrl)
   api.setTimeout(1000 * 30)
   chatModel = config?.chatModel || chatModel
@@ -217,13 +226,28 @@ export async function fetchAvailableModels(key: string, url: string) {
 
 export async function genEmbedding(message: string) {
   try {
-    const r = await api.embeddings({
-      model: embeddingModel,
-      input: message,
+    const response = await fetch(buildEmbeddingsUrl(apiBaseUrl), {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: embeddingModel,
+        input: message,
+      }),
     })
+    const data = await response.json()
+    if (!response.ok) {
+      throw new Error(data?.error?.message || response.statusText || "Request failed")
+    }
 
-    const a = r.data[0].embedding
-    return a
+    const embedding = data?.data?.[0]?.embedding
+    if (!Array.isArray(embedding)) {
+      throw new Error("response missing embedding vector")
+    }
+
+    return embedding
   } catch (error) {
     throw new Error("embedding api error: " + error.message)
   }
@@ -231,19 +255,39 @@ export async function genEmbedding(message: string) {
 
 export async function chat(message: string) {
   try {
-    const res = await api.completion({
-      model: chatModel,
-      messages: [
-        {
-          role: "user",
-          content: message,
-        },
-      ],
-      stream: false,
+    const response = await fetch(buildChatCompletionUrl(apiBaseUrl), {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: chatModel,
+        messages: [
+          {
+            role: "user",
+            content: message,
+          },
+        ],
+        stream: false,
+      }),
     })
+    const data = await response.json()
+    if (!response.ok) {
+      throw new Error(data?.error?.message || response.statusText || "Request failed")
+    }
 
-    const a = res.choices[0].message.content
-    return a
+    const content =
+      data?.choices?.[0]?.message?.content ??
+      data?.choices?.[0]?.text ??
+      data?.message?.content ??
+      data?.response
+
+    if (typeof content !== "string" || !content.trim()) {
+      throw new Error("response missing chat content")
+    }
+
+    return content
   } catch (error) {
     throw new Error("chat api error: " + error.message)
   }
