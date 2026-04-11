@@ -92,3 +92,32 @@ Verify the registered Superpowers skill names exposed to the session and align t
 - Related Files: docs/superpowers/specs/2026-04-11-fulltext-bookmark-webdav-backup-and-larger-popup-design.md
 
 ---
+
+## [ERR-20260411-002] webdav-history-domparser
+
+**Logged**: 2026-04-11T00:00:00Z
+**Priority**: high
+**Status**: pending
+**Area**: backend
+
+### Summary
+WebDAV 历史版本列表在扩展后台刷新时报 `DOMParser is not defined`，导致历史版本始终为空。
+
+### Error
+```text
+DOMParser is not defined
+```
+
+### Context
+- Operation attempted: 点击设置页“刷新列表”读取 WebDAV 历史备份版本
+- Workspace: `D:/ClaudeWork/fulltext-bookmark-main`
+- Cause: 浏览器扩展后台当前运行环境没有 DOMParser，`PROPFIND` XML 解析不能依赖 DOM API
+
+### Suggested Fix
+将 WebDAV `PROPFIND` 返回解析改为纯字符串 / 正则提取 `href`，避免依赖 `DOMParser`。
+
+### Metadata
+- Reproducible: yes
+- Related Files: background.ts, options/components/WebDAVBackupSettings.tsx
+
+---

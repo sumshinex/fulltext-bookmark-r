@@ -566,13 +566,14 @@ async function listWebdavBackupFiles(config: WebdavConfig) {
   }
 
   const text = await response.text()
-  const parser = new DOMParser()
-  const xml = parser.parseFromString(text, "application/xml")
-  const responses = Array.from(xml.getElementsByTagNameNS("DAV:", "response"))
+  const hrefMatches = Array.from(text.matchAll(/<[^>]*href[^>]*>([\s\S]*?)<\/[^>]*href>/gi))
 
-  return responses
-    .map((item) => {
-      const href = item.getElementsByTagNameNS("DAV:", "href")[0]?.textContent || ""
+  return hrefMatches
+    .map((match) => {
+      const href = (match[1] || "")
+        .replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, "$1")
+        .replace(/&amp;/g, "&")
+        .trim()
       if (!href) {
         return null
       }
