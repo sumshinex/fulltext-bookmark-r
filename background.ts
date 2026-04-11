@@ -1237,7 +1237,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
               };
             }
 
-            await generateEmbeddingWithBinding("hello");
+            await genEmbedding("hello");
             return {
               ok: true,
               endpointId: config.endpointId,
