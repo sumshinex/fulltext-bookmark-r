@@ -636,6 +636,36 @@ async function getWebdavBackupHistory(configInput: Partial<WebdavConfig>) {
   }
 }
 
+async function deleteWebdavBackupVersion(
+  configInput: Partial<WebdavConfig>,
+  backupFileName?: string
+) {
+  const config = normalizeWebdavConfig(configInput)
+  await saveWebdavConfig(config)
+
+  if (!backupFileName || !isVersionedWebdavFileName(backupFileName, config.fileName)) {
+    throw new Error(getWebdavMessage("settingPageWebDAVDeleteInvalidTarget"))
+  }
+
+  const response = await fetch(buildWebdavTargetUrl(config, backupFileName), {
+    method: "DELETE",
+    headers: createWebdavHeaders(config),
+  })
+
+  if (response.status === 401 || response.status === 403) {
+    throw new Error(getWebdavMessage("settingPageWebDAVAuthFailed"))
+  }
+
+  if (!response.ok && response.status !== 404) {
+    throw new Error(`WebDAV delete failed (${response.status})`)
+  }
+
+  return {
+    ok: true,
+    message: getWebdavMessage("settingPageWebDAVDeleteSuccess"),
+  }
+}
+
 async function pruneWebdavBackups(config: WebdavConfig) {
   const files = await listWebdavBackupFiles(config)
   const redundantFiles = files
@@ -1142,6 +1172,19 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       (async () => {
         try {
           const result = await restoreBackupFromWebdav(
+            message.config || {},
+            message.backupFileName
+          )
+          sendResponse(result)
+        } catch (error) {
+          sendResponse({ ok: false, error: normalizeWebdavError(error) })
+        }
+      })();
+      return true;
+    case "webdav_backup_delete":
+      (async () => {
+        try {
+          const result = await deleteWebdavBackupVersion(
             message.config || {},
             message.backupFileName
           )

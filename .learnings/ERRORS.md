@@ -121,3 +121,32 @@ DOMParser is not defined
 - Related Files: background.ts, options/components/WebDAVBackupSettings.tsx
 
 ---
+
+## [ERR-20260411-003] webdav-delete-loading-type
+
+**Logged**: 2026-04-11T00:00:00Z
+**Priority**: medium
+**Status**: pending
+**Area**: frontend
+
+### Summary
+给 WebDAV 历史版本新增删除动作后，`actionLoading` 联合类型未同步补上 `delete`，导致 typecheck 失败。
+
+### Error
+```text
+TS2345: Argument of type '"delete" | "test" | "backup" | "restore"' is not assignable to parameter of type '"test" | "backup" | "restore" | "history"'.
+```
+
+### Context
+- Operation attempted: 为历史备份列表增加删除按钮并复用现有 loading 文案函数
+- Workspace: `D:/ClaudeWork/fulltext-bookmark-main`
+- Cause: 新增 loading 状态时漏改了 `getRunningLabel` 参数联合类型
+
+### Suggested Fix
+扩展所有相关联合类型定义，新增动作时同步检查 loading state、按钮文案和状态判断分支。
+
+### Metadata
+- Reproducible: yes
+- Related Files: options/components/WebDAVBackupSettings.tsx
+
+---

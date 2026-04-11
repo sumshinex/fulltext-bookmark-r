@@ -629,6 +629,50 @@
     "message": "$1 history versions",
     "description": "Backup history count text."
   },
+  "settingPageWebDAVUseHistoryRestore": {
+    "message": "Allow Selecting History Version For Restore",
+    "description": "Use history version for restore toggle label."
+  },
+  "settingPageWebDAVUseHistoryRestoreNote": {
+    "message": "When off, restore always uses the latest fixed backup. When on, you can choose a version below.",
+    "description": "Use history version for restore toggle note."
+  },
+  "settingPageWebDAVRestoreLatest": {
+    "message": "Restore Latest Backup",
+    "description": "Restore latest backup button label."
+  },
+  "settingPageWebDAVRestoreSelected": {
+    "message": "Restore Selected History Version",
+    "description": "Restore selected history backup button label."
+  },
+  "settingPageWebDAVLatestTag": {
+    "message": "Latest",
+    "description": "Latest backup tag."
+  },
+  "settingPageWebDAVLatestDisplay": {
+    "message": "$1 (Latest)",
+    "description": "Latest backup display text."
+  },
+  "settingPageWebDAVDeleteSelected": {
+    "message": "Delete Selected Version",
+    "description": "Delete selected backup version button label."
+  },
+  "settingPageWebDAVDeleting": {
+    "message": "Deleting...",
+    "description": "Deleting backup version text."
+  },
+  "settingPageWebDAVDeleteConfirm": {
+    "message": "Delete the selected history backup version? This cannot be undone.",
+    "description": "Delete selected backup version confirmation."
+  },
+  "settingPageWebDAVDeleteSuccess": {
+    "message": "History backup version deleted",
+    "description": "Delete selected backup version success text."
+  },
+  "settingPageWebDAVDeleteInvalidTarget": {
+    "message": "Please select a deletable history backup version",
+    "description": "Invalid delete target text."
+  },
   "settingPageFeatureTitle": {
     "message": "Features",
     "description": "Search button."

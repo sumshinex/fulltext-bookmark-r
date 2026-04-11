@@ -62,9 +62,10 @@ export const WebDAVBackupSettings = ({
   handleBlurWebdavConfig,
   handleSetWebdavStatus,
 }: WebDAVBackupSettingsProps) => {
-  const [actionLoading, setActionLoading] = useState<"test" | "backup" | "restore" | "history" | null>(null)
+  const [actionLoading, setActionLoading] = useState<"test" | "backup" | "restore" | "history" | "delete" | null>(null)
   const [backupHistory, setBackupHistory] = useState<string[]>([])
   const [selectedBackupFileName, setSelectedBackupFileName] = useState("")
+  const [useHistoryVersionForRestore, setUseHistoryVersionForRestore] = useState(false)
 
   const isConfigComplete = useMemo(() => {
     return Boolean(
@@ -75,7 +76,7 @@ export const WebDAVBackupSettings = ({
     )
   }, [tempWebdavBaseUrl, tempWebdavUsername, tempWebdavPassword, tempWebdavFileName])
 
-  const getRunningLabel = (state: "test" | "backup" | "restore" | "history" | null) => {
+  const getRunningLabel = (state: "test" | "backup" | "restore" | "history" | "delete" | null) => {
     if (state === "test") {
       return chrome.i18n.getMessage("settingPageWebDAVTestingConnection")
     }
@@ -87,6 +88,9 @@ export const WebDAVBackupSettings = ({
     }
     if (state === "history") {
       return chrome.i18n.getMessage("settingPageWebDAVLoadingHistory")
+    }
+    if (state === "delete") {
+      return chrome.i18n.getMessage("settingPageWebDAVDeleting")
     }
     return chrome.i18n.getMessage("settingPageWebDAVOperationRunning")
   }
@@ -104,10 +108,28 @@ export const WebDAVBackupSettings = ({
     retentionCount: Math.max(1, tempWebdavRetentionCount || 10),
   })
 
-  const loadBackupHistory = async () => {
+  const formatBackupFileDisplay = (fileName: string, isLatest: boolean) => {
+    const match = fileName.match(/(\d{4})-(\d{2})-(\d{2})_(\d{2})-(\d{2})-(\d{2})/)
+    const baseDisplay = (() => {
+      if (!match) {
+        return fileName
+      }
+
+      const [, year, month, day, hour, minute, second] = match
+      const date = new Date(Number(year), Number(month) - 1, Number(day), Number(hour), Number(minute), Number(second))
+      return `${fileName} (${date.toLocaleString()})`
+    })()
+
+    return isLatest
+      ? chrome.i18n.getMessage("settingPageWebDAVLatestDisplay", baseDisplay) || `${baseDisplay} (${chrome.i18n.getMessage("settingPageWebDAVLatestTag")})`
+      : baseDisplay
+  }
+
+  const loadBackupHistory = async (preferredSelection?: string) => {
     if (!isConfigComplete) {
       setBackupHistory([])
       setSelectedBackupFileName("")
+      setUseHistoryVersionForRestore(false)
       return
     }
 
@@ -123,7 +145,13 @@ export const WebDAVBackupSettings = ({
 
       const files = Array.isArray(response.files) ? response.files : []
       setBackupHistory(files)
+      if (files.length === 0) {
+        setUseHistoryVersionForRestore(false)
+      }
       setSelectedBackupFileName((current) => {
+        if (preferredSelection && files.includes(preferredSelection)) {
+          return preferredSelection
+        }
         if (current && files.includes(current)) {
           return current
         }
@@ -146,7 +174,13 @@ export const WebDAVBackupSettings = ({
     void loadBackupHistory()
   }, [tempWebdavBaseUrl, tempWebdavUsername, tempWebdavPassword, tempWebdavFileName])
 
-  const runAction = async (command: "webdav_test_connection" | "webdav_backup_export" | "webdav_backup_restore") => {
+  const runAction = async (
+    command:
+      | "webdav_test_connection"
+      | "webdav_backup_export"
+      | "webdav_backup_restore"
+      | "webdav_backup_delete"
+  ) => {
     handleBlurWebdavConfig()
 
     if (command === "webdav_backup_restore") {
@@ -158,12 +192,23 @@ export const WebDAVBackupSettings = ({
       }
     }
 
+    if (command === "webdav_backup_delete") {
+      const confirmed = window.confirm(
+        chrome.i18n.getMessage("settingPageWebDAVDeleteConfirm")
+      )
+      if (!confirmed) {
+        return
+      }
+    }
+
     const loadingState =
       command === "webdav_test_connection"
         ? "test"
         : command === "webdav_backup_export"
           ? "backup"
-          : "restore"
+          : command === "webdav_backup_delete"
+            ? "delete"
+            : "restore"
 
     setActionLoading(loadingState)
     handleSetWebdavStatus({
@@ -176,7 +221,8 @@ export const WebDAVBackupSettings = ({
         command,
         config: buildRuntimeConfig(),
         backupFileName:
-          command === "webdav_backup_restore" && selectedBackupFileName
+          (command === "webdav_backup_restore" && useHistoryVersionForRestore && selectedBackupFileName) ||
+          (command === "webdav_backup_delete" && selectedBackupFileName)
             ? selectedBackupFileName
             : undefined,
       })
@@ -197,6 +243,13 @@ export const WebDAVBackupSettings = ({
 
       if (command === "webdav_backup_export") {
         void loadBackupHistory()
+      }
+
+      if (command === "webdav_backup_delete") {
+        const deletedIndex = backupHistory.findIndex((fileName) => fileName === selectedBackupFileName)
+        const nextSelection =
+          backupHistory[deletedIndex + 1] || backupHistory[deletedIndex - 1] || ""
+        void loadBackupHistory(nextSelection)
       }
 
       if (command === "webdav_backup_restore") {
@@ -349,6 +402,18 @@ export const WebDAVBackupSettings = ({
         </span>
       </SettingItemCol>
 
+      <SettingItemCol description={chrome.i18n.getMessage("settingPageWebDAVUseHistoryRestore")}>
+        <label className="flex items-center gap-2 text-sm text-gray-700">
+          <input
+            type="checkbox"
+            checked={useHistoryVersionForRestore}
+            onChange={(e) => setUseHistoryVersionForRestore(e.target.checked)}
+            disabled={backupHistory.length === 0}
+          />
+          <span>{chrome.i18n.getMessage("settingPageWebDAVUseHistoryRestoreNote")}</span>
+        </label>
+      </SettingItemCol>
+
       <SettingItemCol description={chrome.i18n.getMessage("settingPageWebDAVBackupHistory")}>
         <div className="flex flex-col gap-2">
           <div className="flex gap-2">
@@ -356,14 +421,14 @@ export const WebDAVBackupSettings = ({
               className="w-full rounded border px-3 py-2"
               value={selectedBackupFileName}
               onChange={(e) => setSelectedBackupFileName(e.target.value)}
-              disabled={!isConfigComplete || actionLoading !== null || backupHistory.length === 0}
+              disabled={!isConfigComplete || actionLoading !== null || backupHistory.length === 0 || !useHistoryVersionForRestore}
             >
               {backupHistory.length === 0 ? (
                 <option value="">{chrome.i18n.getMessage("settingPageWebDAVNoBackupHistory")}</option>
               ) : (
-                backupHistory.map((fileName) => (
+                backupHistory.map((fileName, index) => (
                   <option key={fileName} value={fileName}>
-                    {fileName}
+                    {formatBackupFileDisplay(fileName, index === 0)}
                   </option>
                 ))
               )}
@@ -377,6 +442,17 @@ export const WebDAVBackupSettings = ({
                 ? chrome.i18n.getMessage("settingPageWebDAVLoadingHistory")
                 : chrome.i18n.getMessage("settingPageWebDAVRefreshHistory")}
             </button>
+            {backupHistory.length > 0 && (
+              <button
+                className="text-red-500 text-sm disabled:text-gray-400"
+                disabled={!isConfigComplete || actionLoading !== null || !selectedBackupFileName}
+                onClick={() => runAction("webdav_backup_delete")}
+              >
+                {actionLoading === "delete"
+                  ? chrome.i18n.getMessage("settingPageWebDAVDeleting")
+                  : chrome.i18n.getMessage("settingPageWebDAVDeleteSelected")}
+              </button>
+            )}
           </div>
           <span className="text-xs text-gray-500">
             {backupHistory.length === 0
@@ -420,12 +496,18 @@ export const WebDAVBackupSettings = ({
         </button>
         <button
           className="text-blue-500 text-lg disabled:text-gray-400"
-          disabled={!isConfigComplete || actionLoading !== null || (backupHistory.length > 0 && !selectedBackupFileName)}
+          disabled={
+            !isConfigComplete ||
+            actionLoading !== null ||
+            (useHistoryVersionForRestore && backupHistory.length > 0 && !selectedBackupFileName)
+          }
           onClick={() => runAction("webdav_backup_restore")}
         >
           {actionLoading === "restore"
             ? chrome.i18n.getMessage("settingPageWebDAVRestoring")
-            : chrome.i18n.getMessage("settingPageWebDAVRestore")}
+            : useHistoryVersionForRestore
+              ? chrome.i18n.getMessage("settingPageWebDAVRestoreSelected")
+              : chrome.i18n.getMessage("settingPageWebDAVRestoreLatest")}
         </button>
       </div>
     </SettingBlock>

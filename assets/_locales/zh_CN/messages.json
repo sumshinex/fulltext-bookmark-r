@@ -629,6 +629,50 @@
     "message": "$1 个历史版本",
     "description": "Backup history count text."
   },
+  "settingPageWebDAVUseHistoryRestore": {
+    "message": "恢复时允许选择历史版本",
+    "description": "Use history version for restore toggle label."
+  },
+  "settingPageWebDAVUseHistoryRestoreNote": {
+    "message": "关闭时始终从固定最新备份恢复；开启后可从下方历史版本中选择。",
+    "description": "Use history version for restore toggle note."
+  },
+  "settingPageWebDAVRestoreLatest": {
+    "message": "从最新备份恢复",
+    "description": "Restore latest backup button label."
+  },
+  "settingPageWebDAVRestoreSelected": {
+    "message": "从所选历史版本恢复",
+    "description": "Restore selected history backup button label."
+  },
+  "settingPageWebDAVLatestTag": {
+    "message": "最新",
+    "description": "Latest backup tag."
+  },
+  "settingPageWebDAVLatestDisplay": {
+    "message": "$1（最新）",
+    "description": "Latest backup display text."
+  },
+  "settingPageWebDAVDeleteSelected": {
+    "message": "删除所选版本",
+    "description": "Delete selected backup version button label."
+  },
+  "settingPageWebDAVDeleting": {
+    "message": "删除中...",
+    "description": "Deleting backup version text."
+  },
+  "settingPageWebDAVDeleteConfirm": {
+    "message": "确定删除所选历史备份版本吗？此操作不可撤销。",
+    "description": "Delete selected backup version confirmation."
+  },
+  "settingPageWebDAVDeleteSuccess": {
+    "message": "历史备份版本已删除",
+    "description": "Delete selected backup version success text."
+  },
+  "settingPageWebDAVDeleteInvalidTarget": {
+    "message": "请选择一个可删除的历史版本文件",
+    "description": "Invalid delete target text."
+  },
   "settingPageFeatureTitle": {
     "message": "功能介绍",
     "description": "Search button"
