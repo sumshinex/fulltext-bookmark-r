@@ -13,6 +13,8 @@ import {
   setMaxResults,
   setRemoteStoreURL,
   setTempPageExpireTime,
+  setWebdavConfig,
+  setWebdavStatus,
   toggleBookmarkAdaption,
   toggleGptEndpointEnabled,
   toggleRemoteStore,
@@ -64,6 +66,8 @@ export const useSettingsState = () => {
   const gptAvailableModelsByEndpoint = useSelector(
     (state: AppStat) => state.gptAvailableModelsByEndpoint
   )
+  const webdavConfig = useSelector((state: AppStat) => state.webdavConfig)
+  const webdavStatus = useSelector((state: AppStat) => state.webdavStatus)
 
   const [navPage, setNavPage] = useState(0)
   const [tempPageExpireTimeInDays, setTempPageExpireTimeInDays] = useState(
@@ -80,6 +84,25 @@ export const useSettingsState = () => {
     validateCustomSearchEngines(customSearchEngines)
   )
   const [tempRemoteStoreURL, setTempRemoteStoreURL] = useState(remoteStoreURL)
+  const [tempWebdavBaseUrl, setTempWebdavBaseUrl] = useState(webdavConfig.baseUrl)
+  const [tempWebdavUsername, setTempWebdavUsername] = useState(webdavConfig.username)
+  const [tempWebdavPassword, setTempWebdavPassword] = useState(webdavConfig.password)
+  const [tempWebdavFileName, setTempWebdavFileName] = useState(webdavConfig.fileName)
+  const [tempWebdavAutoBackupEnabled, setTempWebdavAutoBackupEnabled] = useState(
+    webdavConfig.autoBackupEnabled
+  )
+  const [tempWebdavAutoBackupMode, setTempWebdavAutoBackupMode] = useState(
+    webdavConfig.autoBackupMode
+  )
+  const [tempWebdavAutoBackupTime, setTempWebdavAutoBackupTime] = useState(
+    webdavConfig.autoBackupTime
+  )
+  const [tempWebdavAutoBackupIntervalHours, setTempWebdavAutoBackupIntervalHours] = useState(
+    webdavConfig.autoBackupIntervalHours
+  )
+  const [tempWebdavRetentionCount, setTempWebdavRetentionCount] = useState(
+    webdavConfig.retentionCount
+  )
 
   const handlePageExpireTimeChange = (e) => {
     if (e.target.value === "") {
@@ -177,6 +200,64 @@ export const useSettingsState = () => {
     dispatch(setRemoteStoreURL(tempRemoteStoreURL))
   }
 
+  const handleWebdavBaseUrlChange = (e) => {
+    setTempWebdavBaseUrl(e.target.value)
+  }
+
+  const handleWebdavUsernameChange = (e) => {
+    setTempWebdavUsername(e.target.value)
+  }
+
+  const handleWebdavPasswordChange = (e) => {
+    setTempWebdavPassword(e.target.value)
+  }
+
+  const handleWebdavFileNameChange = (e) => {
+    setTempWebdavFileName(e.target.value)
+  }
+
+  const handleWebdavAutoBackupEnabledChange = (e) => {
+    setTempWebdavAutoBackupEnabled(e.target.checked)
+  }
+
+  const handleWebdavAutoBackupModeChange = (e) => {
+    setTempWebdavAutoBackupMode(e.target.value)
+  }
+
+  const handleWebdavAutoBackupTimeChange = (e) => {
+    setTempWebdavAutoBackupTime(e.target.value)
+  }
+
+  const handleWebdavAutoBackupIntervalHoursChange = (e) => {
+    const value = parseInt(e.target.value, 10)
+    setTempWebdavAutoBackupIntervalHours(Number.isNaN(value) ? 24 : value)
+  }
+
+  const handleWebdavRetentionCountChange = (e) => {
+    const value = parseInt(e.target.value, 10)
+    setTempWebdavRetentionCount(Number.isNaN(value) ? 10 : value)
+  }
+
+  const handleBlurWebdavConfig = () => {
+    dispatch(
+      setWebdavConfig({
+        baseUrl: tempWebdavBaseUrl.trim(),
+        username: tempWebdavUsername.trim(),
+        password: tempWebdavPassword,
+        fileName: tempWebdavFileName.trim() || "fulltext-bookmark-backup.json",
+        autoBackupEnabled: tempWebdavAutoBackupEnabled,
+        autoBackupMode: tempWebdavAutoBackupMode,
+        autoBackupTime: tempWebdavAutoBackupTime || "03:00",
+        autoBackupIntervalHours: Math.max(1, tempWebdavAutoBackupIntervalHours || 24),
+        retentionCount: Math.max(1, tempWebdavRetentionCount || 10),
+      })
+    )
+  }
+
+  const handleSetWebdavStatus = (status) => {
+    dispatch(setWebdavStatus(status))
+  }
+
   const handleAddGptEndpoint = (endpoint: ApiEndpoint) => {
     dispatch(addGptEndpoint(endpoint))
   }
@@ -227,12 +308,23 @@ export const useSettingsState = () => {
     gptDefaultModels,
     gptPromptTemplate,
     gptAvailableModelsByEndpoint,
+    webdavConfig,
+    webdavStatus,
     tempMaxResults,
     tempPageExpireTimeInDays,
     tempForbiddenURLs,
     tempCustomSearchEngines,
     customSearchEnginesError,
     tempRemoteStoreURL,
+    tempWebdavBaseUrl,
+    tempWebdavUsername,
+    tempWebdavPassword,
+    tempWebdavFileName,
+    tempWebdavAutoBackupEnabled,
+    tempWebdavAutoBackupMode,
+    tempWebdavAutoBackupTime,
+    tempWebdavAutoBackupIntervalHours,
+    tempWebdavRetentionCount,
     navPage,
     handleMaxResultsChange,
     handleMaxResultsSubmit,
@@ -245,6 +337,17 @@ export const useSettingsState = () => {
     applyCustomSearchEngines,
     handleRemoteStoreURLChange,
     handleBlurRemoteStoreURL,
+    handleWebdavBaseUrlChange,
+    handleWebdavUsernameChange,
+    handleWebdavPasswordChange,
+    handleWebdavFileNameChange,
+    handleWebdavAutoBackupEnabledChange,
+    handleWebdavAutoBackupModeChange,
+    handleWebdavAutoBackupTimeChange,
+    handleWebdavAutoBackupIntervalHoursChange,
+    handleWebdavRetentionCountChange,
+    handleBlurWebdavConfig,
+    handleSetWebdavStatus,
     handleAddGptEndpoint,
     handleUpdateGptEndpoint,
     handleRemoveGptEndpoint,

@@ -111,7 +111,7 @@ export const SearchView = () => {
     searchinputRef.current.focus();
   }, []);
   return (
-    <div className="w-96 p-4 gap-4 h-[32rem] flex flex-col overflow-hidden">
+    <div className="w-[32rem] p-4 gap-4 h-[40rem] flex flex-col overflow-hidden">
       <div>
         <input
           ref={searchinputRef}

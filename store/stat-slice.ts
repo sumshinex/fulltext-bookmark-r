@@ -29,6 +29,30 @@ export interface EndpointBindings {
   embedding: string[]
 }
 
+export type WebdavAutoBackupMode = "daily_time" | "interval"
+
+export interface WebdavConfig {
+  baseUrl: string
+  username: string
+  password: string
+  fileName: string
+  autoBackupEnabled: boolean
+  autoBackupMode: WebdavAutoBackupMode
+  autoBackupTime: string
+  autoBackupIntervalHours: number
+  retentionCount: number
+}
+
+export type WebdavOperationStatus = "idle" | "success" | "error"
+
+export interface WebdavStatus {
+  lastBackupAt: number | null
+  lastBackupFileName: string
+  nextBackupAt: number | null
+  lastOperationStatus: WebdavOperationStatus
+  lastOperationMessage: string
+}
+
 export interface AppStat {
   searchEngineAdaption: boolean
   storeEveryPage: boolean
@@ -48,6 +72,8 @@ export interface AppStat {
   gptDefaultModels: ModelDefaults
   gptPromptTemplate: string
   gptAvailableModelsByEndpoint: Record<string, string[]>
+  webdavConfig: WebdavConfig
+  webdavStatus: WebdavStatus
   GPTQuery: string
   GPTAnswer: IGPTAnswer
   GPTLoading: boolean
@@ -90,6 +116,26 @@ const defaultBindings: EndpointBindings = {
   embedding: []
 }
 
+const defaultWebdavConfig: WebdavConfig = {
+  baseUrl: "",
+  username: "",
+  password: "",
+  fileName: "fulltext-bookmark-backup.json",
+  autoBackupEnabled: false,
+  autoBackupMode: "daily_time",
+  autoBackupTime: "03:00",
+  autoBackupIntervalHours: 24,
+  retentionCount: 10
+}
+
+const defaultWebdavStatus: WebdavStatus = {
+  lastBackupAt: null,
+  lastBackupFileName: "",
+  nextBackupAt: null,
+  lastOperationStatus: "idle",
+  lastOperationMessage: ""
+}
+
 const removeEndpointFromBindings = (
   bindings: EndpointBindings,
   endpointId: string
@@ -126,6 +172,8 @@ const statSlice = createSlice({
     gptDefaultModels: defaultModelDefaults,
     gptPromptTemplate: defaultPromptTemplate,
     gptAvailableModelsByEndpoint: {},
+    webdavConfig: defaultWebdavConfig,
+    webdavStatus: defaultWebdavStatus,
     GPTQuery: "",
     GPTAnswer: null,
     GPTLoading: false,
@@ -183,6 +231,18 @@ const statSlice = createSlice({
     },
     setAvailableModelsForEndpoint: (state, action) => {
       state.gptAvailableModelsByEndpoint[action.payload.endpointId] = action.payload.models
+    },
+    setWebdavConfig: (state, action) => {
+      state.webdavConfig = {
+        ...state.webdavConfig,
+        ...action.payload,
+      }
+    },
+    setWebdavStatus: (state, action) => {
+      state.webdavStatus = {
+        ...state.webdavStatus,
+        ...action.payload,
+      }
     },
     toggleSearchEngineAdaption: (state) => {
       state.searchEngineAdaption = !state.searchEngineAdaption
@@ -248,6 +308,8 @@ export const {
   setGptDefaultModels,
   setGptPromptTemplate,
   setAvailableModelsForEndpoint,
+  setWebdavConfig,
+  setWebdavStatus,
   setGPTQuery,
   setGPTAnswer,
   setGPTLoading,

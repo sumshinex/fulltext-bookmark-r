@@ -59,7 +59,8 @@
       "tabs",
       "bookmarks",
       "storage",
-      "offscreen"
+      "offscreen",
+      "alarms"
     ],
     "default_locale": "en",
     "content_security_policy": {

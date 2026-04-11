@@ -39,7 +39,7 @@ function Popup() {
     //     })
     // }
   return (
-    <Tabs className="pt-2 pl-2 pr-2" onSelect={handleSelectTab}>
+    <Tabs className="pt-2 pl-2 pr-2 min-w-[32rem]" onSelect={handleSelectTab}>
     <TabList>
       <Tab>{chrome.i18n.getMessage("popupSearchTab")}</Tab>
       {showAskGPT && <Tab>{chrome.i18n.getMessage("popupGPTTab")}</Tab>}

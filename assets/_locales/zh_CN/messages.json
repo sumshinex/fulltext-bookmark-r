@@ -433,6 +433,202 @@
     "message": "仅支持一个地址",
     "description": "Search button"
   },
+  "settingPageWebDAVTitle": {
+    "message": "WebDAV 备份",
+    "description": "WebDAV backup section title."
+  },
+  "settingPageWebDAVBaseUrl": {
+    "message": "WebDAV 基础目录 URL",
+    "description": "WebDAV base URL field label."
+  },
+  "settingPageWebDAVBaseUrlNote": {
+    "message": "填写 WebDAV 根路径或备份目录，不要直接包含最终文件名。",
+    "description": "WebDAV base URL field note."
+  },
+  "settingPageWebDAVUsername": {
+    "message": "用户名",
+    "description": "WebDAV username field label."
+  },
+  "settingPageWebDAVPassword": {
+    "message": "密码 / App Password",
+    "description": "WebDAV password field label."
+  },
+  "settingPageWebDAVFileName": {
+    "message": "备份文件名",
+    "description": "WebDAV backup file name label."
+  },
+  "settingPageWebDAVFileNameNote": {
+    "message": "默认值为 fulltext-bookmark-backup.json。",
+    "description": "WebDAV backup file name note."
+  },
+  "settingPageWebDAVLastBackupAt": {
+    "message": "最后备份时间",
+    "description": "Last backup time label."
+  },
+  "settingPageWebDAVLastOperation": {
+    "message": "最近一次操作状态",
+    "description": "Last WebDAV operation status label."
+  },
+  "settingPageWebDAVNoOperationYet": {
+    "message": "暂无操作记录",
+    "description": "No WebDAV operation yet text."
+  },
+  "settingPageWebDAVNeverBackedUp": {
+    "message": "尚未备份",
+    "description": "Never backed up text."
+  },
+  "settingPageWebDAVTestConnection": {
+    "message": "测试连接",
+    "description": "Test WebDAV connection button."
+  },
+  "settingPageWebDAVBackup": {
+    "message": "备份到 WebDAV",
+    "description": "Backup to WebDAV button."
+  },
+  "settingPageWebDAVRestore": {
+    "message": "从 WebDAV 恢复",
+    "description": "Restore from WebDAV button."
+  },
+  "settingPageWebDAVOperationRunning": {
+    "message": "执行中...",
+    "description": "WebDAV operation running text."
+  },
+  "settingPageWebDAVTestingConnection": {
+    "message": "测试连接中...",
+    "description": "Testing WebDAV connection text."
+  },
+  "settingPageWebDAVBackingUp": {
+    "message": "备份中...",
+    "description": "Backing up to WebDAV text."
+  },
+  "settingPageWebDAVRestoring": {
+    "message": "恢复中...",
+    "description": "Restoring from WebDAV text."
+  },
+  "settingPageWebDAVOperationSuccess": {
+    "message": "操作成功",
+    "description": "WebDAV operation success text."
+  },
+  "settingPageWebDAVConnectionSuccess": {
+    "message": "连接成功",
+    "description": "WebDAV connection success text."
+  },
+  "settingPageWebDAVConnectionTargetMissing": {
+    "message": "连接成功，备份文件尚不存在",
+    "description": "WebDAV connection success but file missing text."
+  },
+  "settingPageWebDAVBackupSuccess": {
+    "message": "备份成功",
+    "description": "WebDAV backup success text."
+  },
+  "settingPageWebDAVRestoreSuccess": {
+    "message": "恢复成功",
+    "description": "WebDAV restore success text."
+  },
+  "settingPageWebDAVOperationFailed": {
+    "message": "操作失败",
+    "description": "WebDAV operation failed text."
+  },
+  "settingPageWebDAVInvalidUrl": {
+    "message": "WebDAV URL 不合法",
+    "description": "Invalid WebDAV URL text."
+  },
+  "settingPageWebDAVUsernameRequired": {
+    "message": "请填写 WebDAV 用户名",
+    "description": "WebDAV username required text."
+  },
+  "settingPageWebDAVPasswordRequired": {
+    "message": "请填写 WebDAV 密码",
+    "description": "WebDAV password required text."
+  },
+  "settingPageWebDAVFileNameRequired": {
+    "message": "请填写备份文件名",
+    "description": "WebDAV file name required text."
+  },
+  "settingPageWebDAVAuthFailed": {
+    "message": "认证失败，请检查用户名或密码",
+    "description": "WebDAV auth failed text."
+  },
+  "settingPageWebDAVFileMissing": {
+    "message": "备份文件不存在，无法恢复",
+    "description": "WebDAV backup file missing text."
+  },
+  "settingPageWebDAVRestoreConfirm": {
+    "message": "此操作会覆盖当前本地数据，建议先手动导出当前备份。确定继续从 WebDAV 恢复吗？",
+    "description": "WebDAV restore confirmation message."
+  },
+  "settingPageWebDAVRestoreSuccessHint": {
+    "message": "恢复成功。请重新打开 Popup 或刷新扩展页面以查看最新数据。",
+    "description": "WebDAV restore success hint."
+  },
+  "settingPageWebDAVAutoBackupEnabled": {
+    "message": "自动备份",
+    "description": "WebDAV auto backup enabled label."
+  },
+  "settingPageWebDAVAutoBackupEnabledNote": {
+    "message": "启用后按下方策略自动备份到 WebDAV。",
+    "description": "WebDAV auto backup enabled note."
+  },
+  "settingPageWebDAVAutoBackupMode": {
+    "message": "自动备份方式",
+    "description": "WebDAV auto backup mode label."
+  },
+  "settingPageWebDAVAutoBackupModeDailyTime": {
+    "message": "每天固定时间",
+    "description": "WebDAV daily backup mode label."
+  },
+  "settingPageWebDAVAutoBackupModeInterval": {
+    "message": "固定间隔小时数",
+    "description": "WebDAV interval backup mode label."
+  },
+  "settingPageWebDAVAutoBackupTime": {
+    "message": "每日备份时间",
+    "description": "WebDAV daily backup time label."
+  },
+  "settingPageWebDAVAutoBackupIntervalHours": {
+    "message": "备份间隔（小时）",
+    "description": "WebDAV backup interval hours label."
+  },
+  "settingPageWebDAVRetentionCount": {
+    "message": "保留版本数",
+    "description": "WebDAV retention count label."
+  },
+  "settingPageWebDAVLastBackupFileName": {
+    "message": "最后备份文件",
+    "description": "WebDAV last backup file name label."
+  },
+  "settingPageWebDAVNoBackupFileYet": {
+    "message": "暂无版本备份文件",
+    "description": "No backup file yet text."
+  },
+  "settingPageWebDAVNextBackupAt": {
+    "message": "下次自动备份时间",
+    "description": "WebDAV next backup time label."
+  },
+  "settingPageWebDAVAutoBackupDisabled": {
+    "message": "自动备份未启用",
+    "description": "WebDAV auto backup disabled text."
+  },
+  "settingPageWebDAVBackupHistory": {
+    "message": "历史备份版本",
+    "description": "WebDAV backup history label."
+  },
+  "settingPageWebDAVNoBackupHistory": {
+    "message": "暂无可用历史版本",
+    "description": "No backup history text."
+  },
+  "settingPageWebDAVRefreshHistory": {
+    "message": "刷新列表",
+    "description": "Refresh backup history button."
+  },
+  "settingPageWebDAVLoadingHistory": {
+    "message": "加载历史中...",
+    "description": "Loading backup history text."
+  },
+  "settingPageWebDAVBackupHistoryCount": {
+    "message": "$1 个历史版本",
+    "description": "Backup history count text."
+  },
   "settingPageFeatureTitle": {
     "message": "功能介绍",
     "description": "Search button"

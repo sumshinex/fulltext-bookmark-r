@@ -41,8 +41,12 @@ import {
   setGPTAnswer,
   setGPTLoading,
   setGPTQuery,
+  setWebdavConfig,
+  setWebdavStatus,
   type AppStat,
   type EndpointCapability,
+  type WebdavConfig,
+  type WebdavStatus,
 } from "~store/stat-slice";
 // import {index as voyIndex, search as voySearch} from "@src/lib/voy/voy_search"
 // import reloadOnUpdate from "virtual:reload-on-update-in-background-script";
@@ -131,6 +135,128 @@ interface Message {
   command: string;
   data: PageData;
   pageId: string;
+}
+
+interface WebdavBackupPayload {
+  schemaVersion: number;
+  exportedAt: string;
+  source: string;
+  data: unknown;
+  stats: {
+    pages: number;
+    contents: number;
+    vectors: number;
+  };
+}
+
+const WEBDAV_AUTO_BACKUP_ALARM = "webdav-auto-backup";
+
+function getDefaultWebdavConfig(): WebdavConfig {
+  return {
+    baseUrl: "",
+    username: "",
+    password: "",
+    fileName: "fulltext-bookmark-backup.json",
+    autoBackupEnabled: false,
+    autoBackupMode: "daily_time",
+    autoBackupTime: "03:00",
+    autoBackupIntervalHours: 24,
+    retentionCount: 10,
+  };
+}
+
+function getStoredWebdavConfig(config: Partial<WebdavConfig>): WebdavConfig {
+  const defaults = getDefaultWebdavConfig();
+
+  return {
+    ...defaults,
+    ...config,
+    baseUrl: (config?.baseUrl || defaults.baseUrl).trim().replace(/\/+$/, ""),
+    username: (config?.username || defaults.username).trim(),
+    password: config?.password || defaults.password,
+    fileName: (config?.fileName || defaults.fileName).trim() || defaults.fileName,
+    autoBackupEnabled: Boolean(config?.autoBackupEnabled),
+    autoBackupMode: config?.autoBackupMode === "interval" ? "interval" : "daily_time",
+    autoBackupTime: (config?.autoBackupTime || defaults.autoBackupTime).trim() || defaults.autoBackupTime,
+    autoBackupIntervalHours: Math.max(1, config?.autoBackupIntervalHours || defaults.autoBackupIntervalHours),
+    retentionCount: Math.max(1, config?.retentionCount || defaults.retentionCount),
+  };
+}
+
+function getWebdavFileNameParts(fileName: string) {
+  const dotIndex = fileName.lastIndexOf(".");
+  if (dotIndex <= 0) {
+    return {
+      prefix: fileName,
+      suffix: "",
+    };
+  }
+
+  return {
+    prefix: fileName.slice(0, dotIndex),
+    suffix: fileName.slice(dotIndex),
+  };
+}
+
+function padTimestampPart(value: number) {
+  return value.toString().padStart(2, "0");
+}
+
+function formatBackupTimestamp(timestamp: number) {
+  const date = new Date(timestamp);
+  return `${date.getFullYear()}-${padTimestampPart(date.getMonth() + 1)}-${padTimestampPart(date.getDate())}_${padTimestampPart(date.getHours())}-${padTimestampPart(date.getMinutes())}-${padTimestampPart(date.getSeconds())}`;
+}
+
+function buildVersionedWebdavFileName(fileName: string, timestamp: number) {
+  const { prefix, suffix } = getWebdavFileNameParts(fileName);
+  return `${prefix}-${formatBackupTimestamp(timestamp)}${suffix}`;
+}
+
+function isVersionedWebdavFileName(candidate: string, baseFileName: string) {
+  const { prefix, suffix } = getWebdavFileNameParts(baseFileName);
+  if (
+    candidate === baseFileName ||
+    !candidate.startsWith(`${prefix}-`) ||
+    !candidate.endsWith(suffix)
+  ) {
+    return false;
+  }
+
+  const middle = candidate.slice(prefix.length + 1, suffix ? -suffix.length : undefined);
+  return /^\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}$/.test(middle);
+}
+
+function parseDailyTime(timeText: string) {
+  const match = /^([01]?\d|2[0-3]):([0-5]\d)$/.exec((timeText || "").trim());
+  if (!match) {
+    return { hours: 3, minutes: 0 };
+  }
+
+  return {
+    hours: Number(match[1]),
+    minutes: Number(match[2]),
+  };
+}
+
+function calculateNextWebdavBackupAt(config: WebdavConfig, baseTimestamp = Date.now()) {
+  if (!config.autoBackupEnabled) {
+    return null;
+  }
+
+  if (config.autoBackupMode === "interval") {
+    return baseTimestamp + Math.max(1, config.autoBackupIntervalHours || 24) * 60 * 60 * 1000;
+  }
+
+  const { hours, minutes } = parseDailyTime(config.autoBackupTime);
+  const next = new Date(baseTimestamp);
+  next.setSeconds(0, 0);
+  next.setHours(hours, minutes, 0, 0);
+
+  if (next.getTime() <= baseTimestamp) {
+    next.setDate(next.getDate() + 1);
+  }
+
+  return next.getTime();
 }
 
 function normalizeSearchEnginePageContext(context: Partial<SearchEnginePageContext>): SearchEnginePageContext {
@@ -278,6 +404,378 @@ async function fetchModelsFromCapabilityBinding(capability: EndpointCapability) 
   }
 }
 
+function getWebdavMessage(key: string) {
+  const message = chrome.i18n.getMessage(key)
+  return message || key
+}
+
+function normalizeWebdavBaseUrl(baseUrl: string) {
+  const trimmed = (baseUrl || "").trim()
+  if (!trimmed) {
+    throw new Error(getWebdavMessage("settingPageWebDAVInvalidUrl"))
+  }
+  return trimmed.replace(/\/+$/, "")
+}
+
+function normalizeWebdavConfig(config: Partial<WebdavConfig>): WebdavConfig {
+  const storedConfig = getStoredWebdavConfig(config)
+  const { baseUrl, username, password, fileName } = storedConfig
+
+  if (!username) {
+    throw new Error(getWebdavMessage("settingPageWebDAVUsernameRequired"))
+  }
+  if (!password) {
+    throw new Error(getWebdavMessage("settingPageWebDAVPasswordRequired"))
+  }
+  if (!fileName) {
+    throw new Error(getWebdavMessage("settingPageWebDAVFileNameRequired"))
+  }
+
+  try {
+    new URL(baseUrl)
+  } catch {
+    throw new Error(getWebdavMessage("settingPageWebDAVInvalidUrl"))
+  }
+
+  return storedConfig
+}
+
+function buildWebdavTargetUrl(config: WebdavConfig, fileName = config.fileName) {
+  return `${config.baseUrl}/${encodeURIComponent(fileName)}`
+}
+
+function getWebdavDirectoryUrl(config: WebdavConfig) {
+  return `${config.baseUrl}/`
+}
+
+function createWebdavHeaders(config: WebdavConfig, contentType?: string) {
+  const headers: Record<string, string> = {
+    Authorization: `Basic ${btoa(`${config.username}:${config.password}`)}`,
+  }
+
+  if (contentType) {
+    headers["Content-Type"] = contentType
+  }
+
+  return headers
+}
+
+function normalizeWebdavError(error: unknown) {
+  if (error instanceof TypeError) {
+    return `WebDAV network request failed: ${error.message}`
+  }
+  if (error instanceof Error) {
+    return error.message
+  }
+  return getWebdavMessage("settingPageWebDAVOperationFailed")
+}
+
+async function saveWebdavConfig(config: WebdavConfig) {
+  const nextBackupAt = calculateNextWebdavBackupAt(config)
+  store.dispatch(setWebdavConfig(config))
+  store.dispatch(
+    setWebdavStatus({
+      lastOperationStatus: "idle",
+      nextBackupAt,
+    })
+  )
+  await persistor.flush()
+  await scheduleWebdavAutoBackup(config)
+}
+
+async function updateWebdavStatus(status: Partial<WebdavStatus>) {
+  store.dispatch(setWebdavStatus(status))
+  await persistor.flush()
+}
+
+async function scheduleWebdavAutoBackup(configInput?: Partial<WebdavConfig>) {
+  const config = getStoredWebdavConfig(configInput || (store.getState() as AppStat).webdavConfig)
+
+  await chrome.alarms.clear(WEBDAV_AUTO_BACKUP_ALARM)
+
+  if (!config.autoBackupEnabled || !config.baseUrl || !config.username || !config.password) {
+    await updateWebdavStatus({ nextBackupAt: null })
+    return
+  }
+
+  const when = calculateNextWebdavBackupAt(config)
+  if (!when) {
+    await updateWebdavStatus({ nextBackupAt: null })
+    return
+  }
+
+  chrome.alarms.create(WEBDAV_AUTO_BACKUP_ALARM, { when })
+  await updateWebdavStatus({ nextBackupAt: when })
+}
+
+async function readExportedDatabaseJson() {
+  const blob = await db.export()
+
+  return await new Promise<any>((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = function () {
+      try {
+        // @ts-ignore
+        resolve(JSON.parse(this.result))
+      } catch (error) {
+        reject(error)
+      }
+    }
+    reader.onerror = () => reject(reader.error)
+    reader.readAsText(blob, "utf-8")
+  })
+}
+
+async function buildWebdavBackupPayload(): Promise<WebdavBackupPayload> {
+  const exportedData = await readExportedDatabaseJson()
+  // @ts-ignore
+  const tables = Array.isArray(exportedData?.data?.data) ? exportedData.data.data : []
+  const findCount = (tableName: string) => {
+    const table = tables.find((item) => item?.tableName === tableName)
+    return Array.isArray(table?.rows) ? table.rows.length : 0
+  }
+
+  return {
+    schemaVersion: 1,
+    exportedAt: new Date().toISOString(),
+    source: "fulltext-bookmark-main",
+    data: exportedData,
+    stats: {
+      pages: findCount("pages"),
+      contents: findCount("contents"),
+      vectors: findCount("vectors"),
+    },
+  }
+}
+
+async function listWebdavBackupFiles(config: WebdavConfig) {
+  const response = await fetch(getWebdavDirectoryUrl(config), {
+    method: "PROPFIND",
+    headers: {
+      ...createWebdavHeaders(config),
+      Depth: "1",
+    },
+  })
+
+  if (response.status === 401 || response.status === 403) {
+    throw new Error(getWebdavMessage("settingPageWebDAVAuthFailed"))
+  }
+
+  if (!response.ok) {
+    throw new Error(`WebDAV list failed (${response.status})`)
+  }
+
+  const text = await response.text()
+  const parser = new DOMParser()
+  const xml = parser.parseFromString(text, "application/xml")
+  const responses = Array.from(xml.getElementsByTagNameNS("DAV:", "response"))
+
+  return responses
+    .map((item) => {
+      const href = item.getElementsByTagNameNS("DAV:", "href")[0]?.textContent || ""
+      if (!href) {
+        return null
+      }
+
+      try {
+        const decoded = decodeURIComponent(href)
+        const url = new URL(decoded, getWebdavDirectoryUrl(config))
+        const fileName = url.pathname.split("/").filter(Boolean).pop() || ""
+        if (!fileName || !isVersionedWebdavFileName(fileName, config.fileName)) {
+          return null
+        }
+
+        return {
+          fileName,
+          url: buildWebdavTargetUrl(config, fileName),
+        }
+      } catch {
+        return null
+      }
+    })
+    .filter((item): item is { fileName: string; url: string } => Boolean(item))
+    .sort((left, right) => right.fileName.localeCompare(left.fileName))
+}
+
+async function fetchWebdavBackupPayload(config: WebdavConfig, backupFileName?: string) {
+  const targetUrl = buildWebdavTargetUrl(config, backupFileName || config.fileName)
+  const response = await fetch(targetUrl, {
+    method: "GET",
+    headers: createWebdavHeaders(config),
+  })
+
+  if (response.status === 401 || response.status === 403) {
+    throw new Error(getWebdavMessage("settingPageWebDAVAuthFailed"))
+  }
+
+  if (response.status === 404) {
+    throw new Error(getWebdavMessage("settingPageWebDAVFileMissing"))
+  }
+
+  if (!response.ok) {
+    throw new Error(`WebDAV restore failed (${response.status})`)
+  }
+
+  const payload = (await response.json()) as WebdavBackupPayload
+  if (!payload || typeof payload !== "object" || !payload.data || !payload.schemaVersion) {
+    throw new Error("备份文件结构无效")
+  }
+
+  return payload
+}
+
+async function getWebdavBackupHistory(configInput: Partial<WebdavConfig>) {
+  const config = normalizeWebdavConfig(configInput)
+  await saveWebdavConfig(config)
+  const files = await listWebdavBackupFiles(config)
+
+  return {
+    ok: true,
+    files: files.map((file) => file.fileName),
+  }
+}
+
+async function pruneWebdavBackups(config: WebdavConfig) {
+  const files = await listWebdavBackupFiles(config)
+  const redundantFiles = files
+    .sort((left, right) => right.fileName.localeCompare(left.fileName))
+    .slice(Math.max(1, config.retentionCount || 10))
+
+  await Promise.all(
+    redundantFiles.map(async (file) => {
+      const response = await fetch(file.url, {
+        method: "DELETE",
+        headers: createWebdavHeaders(config),
+      })
+
+      if (!response.ok && response.status !== 404) {
+        throw new Error(`WebDAV cleanup failed (${response.status})`)
+      }
+    })
+  )
+}
+
+async function testWebdavConnection(configInput: Partial<WebdavConfig>) {
+  const config = normalizeWebdavConfig(configInput)
+  const targetUrl = buildWebdavTargetUrl(config)
+  await saveWebdavConfig(config)
+
+  const response = await fetch(targetUrl, {
+    method: "HEAD",
+    headers: createWebdavHeaders(config),
+  })
+
+  if (response.status === 401 || response.status === 403) {
+    throw new Error(getWebdavMessage("settingPageWebDAVAuthFailed"))
+  }
+
+  if (!response.ok && response.status !== 404) {
+    throw new Error(`WebDAV connection failed (${response.status})`)
+  }
+
+  const message =
+    response.status === 404
+      ? getWebdavMessage("settingPageWebDAVConnectionTargetMissing")
+      : getWebdavMessage("settingPageWebDAVConnectionSuccess")
+
+  store.dispatch(
+    setWebdavStatus({
+      lastOperationStatus: "success",
+      lastOperationMessage: message,
+    })
+  )
+
+  return {
+    ok: true,
+    message,
+  }
+}
+
+async function exportBackupToWebdav(configInput: Partial<WebdavConfig>) {
+  const config = normalizeWebdavConfig(configInput)
+  const backedUpAt = Date.now()
+  const versionedFileName = buildVersionedWebdavFileName(config.fileName, backedUpAt)
+  const targetUrl = buildWebdavTargetUrl(config, versionedFileName)
+  const latestTargetUrl = buildWebdavTargetUrl(config)
+  const payload = await buildWebdavBackupPayload()
+  await saveWebdavConfig(config)
+
+  const requestBody = JSON.stringify(payload, null, 2)
+  const uploadTargets = [targetUrl, latestTargetUrl]
+
+  for (const url of uploadTargets) {
+    const response = await fetch(url, {
+      method: "PUT",
+      headers: createWebdavHeaders(config, "application/json"),
+      body: requestBody,
+    })
+
+    if (response.status === 401 || response.status === 403) {
+      throw new Error(getWebdavMessage("settingPageWebDAVAuthFailed"))
+    }
+
+    if (!response.ok) {
+      throw new Error(`WebDAV backup failed (${response.status})`)
+    }
+  }
+
+  await pruneWebdavBackups(config)
+
+  const nextBackupAt = calculateNextWebdavBackupAt(config, backedUpAt)
+  const message = getWebdavMessage("settingPageWebDAVBackupSuccess")
+  await updateWebdavStatus({
+    lastBackupAt: backedUpAt,
+    lastBackupFileName: versionedFileName,
+    nextBackupAt,
+    lastOperationStatus: "success",
+    lastOperationMessage: message,
+  })
+
+  if (config.autoBackupEnabled) {
+    chrome.alarms.create(WEBDAV_AUTO_BACKUP_ALARM, { when: nextBackupAt || undefined })
+  }
+
+  return {
+    ok: true,
+    backedUpAt,
+    backupFileName: versionedFileName,
+    nextBackupAt,
+    message,
+    stats: payload.stats,
+  }
+}
+
+async function restoreBackupFromWebdav(
+  configInput: Partial<WebdavConfig>,
+  backupFileName?: string
+) {
+  const config = normalizeWebdavConfig(configInput)
+  await saveWebdavConfig(config)
+  const payload = await fetchWebdavBackupPayload(config, backupFileName)
+
+  const importBlob = new Blob([JSON.stringify(payload.data)], {
+    type: "application/json",
+  })
+
+  await db.import(importBlob, {
+    clearTablesBeforeImport: true,
+    overwriteValues: true,
+    acceptVersionDiff: true,
+  })
+
+  const message = getWebdavMessage("settingPageWebDAVRestoreSuccess")
+  await updateWebdavStatus({
+    nextBackupAt: calculateNextWebdavBackupAt(config),
+    lastOperationStatus: "success",
+    lastOperationMessage: message,
+  })
+
+  return {
+    ok: true,
+    message,
+  }
+}
+
 async function generateEmbeddingWithBinding(message: string) {
   return runWithCapabilityEndpoint("embedding", async () => genEmbedding(message))
 }
@@ -352,11 +850,34 @@ function getBookmarksOnInstalled(){
   });
 }
 
-chrome.runtime.onInstalled.addListener(
- ()=>{
+chrome.runtime.onInstalled.addListener(() => {
   getBookmarksOnInstalled()
- }
-)
+  void scheduleWebdavAutoBackup()
+})
+
+chrome.runtime.onStartup.addListener(() => {
+  void scheduleWebdavAutoBackup()
+})
+
+chrome.alarms.onAlarm.addListener((alarm) => {
+  if (alarm.name !== WEBDAV_AUTO_BACKUP_ALARM) {
+    return
+  }
+
+  void (async () => {
+    try {
+      await exportBackupToWebdav((store.getState() as AppStat).webdavConfig)
+    } catch (error) {
+      const config = getStoredWebdavConfig((store.getState() as AppStat).webdavConfig)
+      await updateWebdavStatus({
+        nextBackupAt: calculateNextWebdavBackupAt(config),
+        lastOperationStatus: "error",
+        lastOperationMessage: normalizeWebdavError(error),
+      })
+      await scheduleWebdavAutoBackup(config)
+    }
+  })()
+})
 
 // listeners
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
@@ -583,6 +1104,49 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             ok: false,
             error: error instanceof Error ? error.message : chrome.i18n.getMessage("gptBackgroundGenerateRuleFailed"),
           });
+        }
+      })();
+      return true;
+    case "webdav_test_connection":
+      (async () => {
+        try {
+          const result = await testWebdavConnection(message.config || {})
+          sendResponse(result)
+        } catch (error) {
+          sendResponse({ ok: false, error: normalizeWebdavError(error) })
+        }
+      })();
+      return true;
+    case "webdav_backup_export":
+      (async () => {
+        try {
+          const result = await exportBackupToWebdav(message.config || {})
+          sendResponse(result)
+        } catch (error) {
+          sendResponse({ ok: false, error: normalizeWebdavError(error) })
+        }
+      })();
+      return true;
+    case "webdav_backup_history":
+      (async () => {
+        try {
+          const result = await getWebdavBackupHistory(message.config || {})
+          sendResponse(result)
+        } catch (error) {
+          sendResponse({ ok: false, error: normalizeWebdavError(error) })
+        }
+      })();
+      return true;
+    case "webdav_backup_restore":
+      (async () => {
+        try {
+          const result = await restoreBackupFromWebdav(
+            message.config || {},
+            message.backupFileName
+          )
+          sendResponse(result)
+        } catch (error) {
+          sendResponse({ ok: false, error: normalizeWebdavError(error) })
         }
       })();
       return true;

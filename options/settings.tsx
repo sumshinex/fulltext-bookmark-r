@@ -28,12 +28,23 @@ export const SettingView = () => {
     gptDefaultModels,
     gptPromptTemplate,
     gptAvailableModelsByEndpoint,
+    webdavConfig,
+    webdavStatus,
     tempMaxResults,
     tempPageExpireTimeInDays,
     tempForbiddenURLs,
     tempCustomSearchEngines,
     customSearchEnginesError,
     tempRemoteStoreURL,
+    tempWebdavBaseUrl,
+    tempWebdavUsername,
+    tempWebdavPassword,
+    tempWebdavFileName,
+    tempWebdavAutoBackupEnabled,
+    tempWebdavAutoBackupMode,
+    tempWebdavAutoBackupTime,
+    tempWebdavAutoBackupIntervalHours,
+    tempWebdavRetentionCount,
     navPage,
     applyCustomSearchEngines,
     handleMaxResultsChange,
@@ -46,6 +57,17 @@ export const SettingView = () => {
     handleBlurCustomSearchEngines,
     handleRemoteStoreURLChange,
     handleBlurRemoteStoreURL,
+    handleWebdavBaseUrlChange,
+    handleWebdavUsernameChange,
+    handleWebdavPasswordChange,
+    handleWebdavFileNameChange,
+    handleWebdavAutoBackupEnabledChange,
+    handleWebdavAutoBackupModeChange,
+    handleWebdavAutoBackupTimeChange,
+    handleWebdavAutoBackupIntervalHoursChange,
+    handleWebdavRetentionCountChange,
+    handleBlurWebdavConfig,
+    handleSetWebdavStatus,
     handleAddGptEndpoint,
     handleUpdateGptEndpoint,
     handleRemoveGptEndpoint,
@@ -261,7 +283,33 @@ export const SettingView = () => {
 
         {navPage === 4 && <Donate />}
 
-        {navPage === 5 && <DataManagement setStoreSize={setStoreSize} />}
+        {navPage === 5 && (
+          <DataManagement
+            setStoreSize={setStoreSize}
+            webdavConfig={webdavConfig}
+            webdavStatus={webdavStatus}
+            tempWebdavBaseUrl={tempWebdavBaseUrl}
+            tempWebdavUsername={tempWebdavUsername}
+            tempWebdavPassword={tempWebdavPassword}
+            tempWebdavFileName={tempWebdavFileName}
+            tempWebdavAutoBackupEnabled={tempWebdavAutoBackupEnabled}
+            tempWebdavAutoBackupMode={tempWebdavAutoBackupMode}
+            tempWebdavAutoBackupTime={tempWebdavAutoBackupTime}
+            tempWebdavAutoBackupIntervalHours={tempWebdavAutoBackupIntervalHours}
+            tempWebdavRetentionCount={tempWebdavRetentionCount}
+            handleWebdavBaseUrlChange={handleWebdavBaseUrlChange}
+            handleWebdavUsernameChange={handleWebdavUsernameChange}
+            handleWebdavPasswordChange={handleWebdavPasswordChange}
+            handleWebdavFileNameChange={handleWebdavFileNameChange}
+            handleWebdavAutoBackupEnabledChange={handleWebdavAutoBackupEnabledChange}
+            handleWebdavAutoBackupModeChange={handleWebdavAutoBackupModeChange}
+            handleWebdavAutoBackupTimeChange={handleWebdavAutoBackupTimeChange}
+            handleWebdavAutoBackupIntervalHoursChange={handleWebdavAutoBackupIntervalHoursChange}
+            handleWebdavRetentionCountChange={handleWebdavRetentionCountChange}
+            handleBlurWebdavConfig={handleBlurWebdavConfig}
+            handleSetWebdavStatus={handleSetWebdavStatus}
+          />
+        )}
       </div>
     </div>
   )

@@ -5,6 +5,8 @@ import reducer, {
   setAvailableModelsForEndpoint,
   setGptBindings,
   setGptDefaultModels,
+  setWebdavConfig,
+  setWebdavStatus,
   toggleGptEndpointEnabled,
   updateGptEndpoint,
   type ApiEndpoint,
@@ -21,6 +23,24 @@ describe("stat slice GPT orchestration state", () => {
       embedding: "text-embedding-3-small",
     })
     expect(state.gptAvailableModelsByEndpoint).toEqual({})
+    expect(state.webdavConfig).toEqual({
+      baseUrl: "",
+      username: "",
+      password: "",
+      fileName: "fulltext-bookmark-backup.json",
+      autoBackupEnabled: false,
+      autoBackupMode: "daily_time",
+      autoBackupTime: "03:00",
+      autoBackupIntervalHours: 24,
+      retentionCount: 10,
+    })
+    expect(state.webdavStatus).toEqual({
+      lastBackupAt: null,
+      lastBackupFileName: "",
+      nextBackupAt: null,
+      lastOperationStatus: "idle",
+      lastOperationMessage: "",
+    })
   })
 
   it("adds updates and toggles endpoints", () => {
@@ -103,5 +123,50 @@ describe("stat slice GPT orchestration state", () => {
     expect(state.gptPromptTemplate).toBe("custom prompt")
     expect(state.gptEndpoints).toHaveLength(1)
     expect(state.gptBindings.chat).toEqual(["ep-1"])
+  })
+
+  it("updates webdav config and status independently", () => {
+    let state = reducer(
+      undefined,
+      setWebdavConfig({
+        baseUrl: "https://dav.example.com/backup",
+        username: "alice",
+        autoBackupEnabled: true,
+        autoBackupMode: "interval",
+        autoBackupIntervalHours: 12,
+        retentionCount: 5,
+      })
+    )
+
+    state = reducer(
+      state,
+      setWebdavStatus({
+        lastBackupAt: 1712800000000,
+        lastBackupFileName: "fulltext-bookmark-backup-2026-04-11_03-00-00.json",
+        nextBackupAt: 1712843200000,
+        lastOperationStatus: "success",
+        lastOperationMessage: "Backup completed",
+      })
+    )
+
+    expect(state.webdavConfig).toEqual({
+      baseUrl: "https://dav.example.com/backup",
+      username: "alice",
+      password: "",
+      fileName: "fulltext-bookmark-backup.json",
+      autoBackupEnabled: true,
+      autoBackupMode: "interval",
+      autoBackupTime: "03:00",
+      autoBackupIntervalHours: 12,
+      retentionCount: 5,
+    })
+    expect(state.webdavStatus).toEqual({
+      lastBackupAt: 1712800000000,
+      lastBackupFileName: "fulltext-bookmark-backup-2026-04-11_03-00-00.json",
+      nextBackupAt: 1712843200000,
+      lastOperationStatus: "success",
+      lastOperationMessage: "Backup completed",
+    })
+    expect(state.gptEndpoints).toEqual([])
   })
 })

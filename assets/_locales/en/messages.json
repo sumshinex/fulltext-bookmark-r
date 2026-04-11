@@ -433,6 +433,202 @@
     "message": "Only 1 address.",
     "description": "Search button."
   },
+  "settingPageWebDAVTitle": {
+    "message": "WebDAV Backup",
+    "description": "WebDAV backup section title."
+  },
+  "settingPageWebDAVBaseUrl": {
+    "message": "WebDAV Base Directory URL",
+    "description": "WebDAV base URL field label."
+  },
+  "settingPageWebDAVBaseUrlNote": {
+    "message": "Enter the WebDAV root path or backup directory, without the final file name.",
+    "description": "WebDAV base URL field note."
+  },
+  "settingPageWebDAVUsername": {
+    "message": "Username",
+    "description": "WebDAV username field label."
+  },
+  "settingPageWebDAVPassword": {
+    "message": "Password / App Password",
+    "description": "WebDAV password field label."
+  },
+  "settingPageWebDAVFileName": {
+    "message": "Backup File Name",
+    "description": "WebDAV backup file name label."
+  },
+  "settingPageWebDAVFileNameNote": {
+    "message": "Defaults to fulltext-bookmark-backup.json.",
+    "description": "WebDAV backup file name note."
+  },
+  "settingPageWebDAVLastBackupAt": {
+    "message": "Last Backup Time",
+    "description": "Last backup time label."
+  },
+  "settingPageWebDAVLastOperation": {
+    "message": "Last Operation Status",
+    "description": "Last WebDAV operation status label."
+  },
+  "settingPageWebDAVNoOperationYet": {
+    "message": "No operation yet",
+    "description": "No WebDAV operation yet text."
+  },
+  "settingPageWebDAVNeverBackedUp": {
+    "message": "Never backed up",
+    "description": "Never backed up text."
+  },
+  "settingPageWebDAVTestConnection": {
+    "message": "Test Connection",
+    "description": "Test WebDAV connection button."
+  },
+  "settingPageWebDAVBackup": {
+    "message": "Backup To WebDAV",
+    "description": "Backup to WebDAV button."
+  },
+  "settingPageWebDAVRestore": {
+    "message": "Restore From WebDAV",
+    "description": "Restore from WebDAV button."
+  },
+  "settingPageWebDAVOperationRunning": {
+    "message": "Running...",
+    "description": "WebDAV operation running text."
+  },
+  "settingPageWebDAVTestingConnection": {
+    "message": "Testing connection...",
+    "description": "Testing WebDAV connection text."
+  },
+  "settingPageWebDAVBackingUp": {
+    "message": "Backing up...",
+    "description": "Backing up to WebDAV text."
+  },
+  "settingPageWebDAVRestoring": {
+    "message": "Restoring...",
+    "description": "Restoring from WebDAV text."
+  },
+  "settingPageWebDAVOperationSuccess": {
+    "message": "Operation succeeded",
+    "description": "WebDAV operation success text."
+  },
+  "settingPageWebDAVConnectionSuccess": {
+    "message": "Connection succeeded",
+    "description": "WebDAV connection success text."
+  },
+  "settingPageWebDAVConnectionTargetMissing": {
+    "message": "Connection succeeded, but the backup file does not exist yet",
+    "description": "WebDAV connection success but file missing text."
+  },
+  "settingPageWebDAVBackupSuccess": {
+    "message": "Backup completed",
+    "description": "WebDAV backup success text."
+  },
+  "settingPageWebDAVRestoreSuccess": {
+    "message": "Restore completed",
+    "description": "WebDAV restore success text."
+  },
+  "settingPageWebDAVOperationFailed": {
+    "message": "Operation failed",
+    "description": "WebDAV operation failed text."
+  },
+  "settingPageWebDAVInvalidUrl": {
+    "message": "Invalid WebDAV URL",
+    "description": "Invalid WebDAV URL text."
+  },
+  "settingPageWebDAVUsernameRequired": {
+    "message": "Please enter a WebDAV username",
+    "description": "WebDAV username required text."
+  },
+  "settingPageWebDAVPasswordRequired": {
+    "message": "Please enter a WebDAV password",
+    "description": "WebDAV password required text."
+  },
+  "settingPageWebDAVFileNameRequired": {
+    "message": "Please enter a backup file name",
+    "description": "WebDAV file name required text."
+  },
+  "settingPageWebDAVAuthFailed": {
+    "message": "Authentication failed. Please check the username or password.",
+    "description": "WebDAV auth failed text."
+  },
+  "settingPageWebDAVFileMissing": {
+    "message": "Backup file does not exist and cannot be restored",
+    "description": "WebDAV backup file missing text."
+  },
+  "settingPageWebDAVRestoreConfirm": {
+    "message": "This will overwrite your current local data. It is recommended to export a local backup first. Continue restoring from WebDAV?",
+    "description": "WebDAV restore confirmation message."
+  },
+  "settingPageWebDAVRestoreSuccessHint": {
+    "message": "Restore completed. Reopen the popup or refresh the extension page to see the latest data.",
+    "description": "WebDAV restore success hint."
+  },
+  "settingPageWebDAVAutoBackupEnabled": {
+    "message": "Auto Backup",
+    "description": "WebDAV auto backup enabled label."
+  },
+  "settingPageWebDAVAutoBackupEnabledNote": {
+    "message": "When enabled, backups are uploaded to WebDAV automatically using the schedule below.",
+    "description": "WebDAV auto backup enabled note."
+  },
+  "settingPageWebDAVAutoBackupMode": {
+    "message": "Auto Backup Mode",
+    "description": "WebDAV auto backup mode label."
+  },
+  "settingPageWebDAVAutoBackupModeDailyTime": {
+    "message": "Fixed Daily Time",
+    "description": "WebDAV daily backup mode label."
+  },
+  "settingPageWebDAVAutoBackupModeInterval": {
+    "message": "Fixed Hour Interval",
+    "description": "WebDAV interval backup mode label."
+  },
+  "settingPageWebDAVAutoBackupTime": {
+    "message": "Daily Backup Time",
+    "description": "WebDAV daily backup time label."
+  },
+  "settingPageWebDAVAutoBackupIntervalHours": {
+    "message": "Backup Interval (Hours)",
+    "description": "WebDAV backup interval hours label."
+  },
+  "settingPageWebDAVRetentionCount": {
+    "message": "Retained Versions",
+    "description": "WebDAV retention count label."
+  },
+  "settingPageWebDAVLastBackupFileName": {
+    "message": "Last Backup File",
+    "description": "WebDAV last backup file name label."
+  },
+  "settingPageWebDAVNoBackupFileYet": {
+    "message": "No versioned backup file yet",
+    "description": "No backup file yet text."
+  },
+  "settingPageWebDAVNextBackupAt": {
+    "message": "Next Auto Backup Time",
+    "description": "WebDAV next backup time label."
+  },
+  "settingPageWebDAVAutoBackupDisabled": {
+    "message": "Auto backup is disabled",
+    "description": "WebDAV auto backup disabled text."
+  },
+  "settingPageWebDAVBackupHistory": {
+    "message": "Backup History",
+    "description": "WebDAV backup history label."
+  },
+  "settingPageWebDAVNoBackupHistory": {
+    "message": "No history backups available",
+    "description": "No backup history text."
+  },
+  "settingPageWebDAVRefreshHistory": {
+    "message": "Refresh",
+    "description": "Refresh backup history button."
+  },
+  "settingPageWebDAVLoadingHistory": {
+    "message": "Loading history...",
+    "description": "Loading backup history text."
+  },
+  "settingPageWebDAVBackupHistoryCount": {
+    "message": "$1 history versions",
+    "description": "Backup history count text."
+  },
   "settingPageFeatureTitle": {
     "message": "Features",
     "description": "Search button."
