@@ -39,6 +39,7 @@ import {
 import { textSplitter } from "~lib/textsplitter-utils";
 
 import {
+  buildSettingsBackupData,
   buildSettingsBackupPayload,
   clearAvailableModelsForAllEndpoints,
   normalizeSettingsBackupData,
@@ -66,6 +67,7 @@ import {
   toggleWeiboSupport,
   type AppStat,
   type EndpointCapability,
+  type SettingsBackupData,
   type SettingsBackupPayload,
   type WebdavConfig,
   type WebdavStatus,
@@ -198,6 +200,7 @@ interface WebdavBackupPayload {
   exportedAt: string;
   source: string;
   data: unknown;
+  settings?: SettingsBackupData;
   stats: {
     pages: number;
     contents: number;
@@ -733,6 +736,7 @@ async function buildWebdavBackupPayload(): Promise<WebdavBackupPayload> {
     exportedAt: new Date().toISOString(),
     source: "fulltext-bookmark-main",
     data: exportedData,
+    settings: buildSettingsBackupData(store.getState() as AppStat),
     stats: {
       pages: findCount("pages"),
       contents: findCount("contents"),
@@ -1044,6 +1048,15 @@ async function restoreBackupFromWebdav(
     overwriteValues: true,
     acceptVersionDiff: true,
   })
+
+  if (payload.settings) {
+    await applySettingsBackupData({
+      schemaVersion: payload.schemaVersion,
+      exportedAt: payload.exportedAt,
+      source: payload.source,
+      data: payload.settings,
+    })
+  }
 
   const message = getWebdavMessage("settingPageWebDAVRestoreSuccess")
   await updateWebdavStatus({
@@ -1551,6 +1564,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     case "export_settings":
       (async () => {
         try {
+          await ensurePersistedStateSynced()
           const payload = buildSettingsBackupPayload(store.getState() as AppStat)
           sendResponse({ ok: true, payload })
         } catch (error) {

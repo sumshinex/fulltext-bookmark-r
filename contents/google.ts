@@ -7,7 +7,8 @@ import {
   parseCustomSearchEngines,
   truncateText,
   type SearchEnginePageContext,
-  type SearchEngineRule
+  type SearchEngineRule,
+  type SearchInsertPosition
 } from "~/lib/utils"
 
 export const config: PlasmoContentScript = {
@@ -427,9 +428,7 @@ function testSearchEngineRule(rule: SearchEngineRule): SearchRuleTestResult {
   }
 }
 
-function insertResult(originContainer: HTMLElement, newElement: HTMLDivElement, rule: SearchEngineRule) {
-  const insertPosition = rule.insertPosition || "prepend"
-
+function insertResult(originContainer: HTMLElement, newElement: HTMLDivElement, insertPosition: SearchInsertPosition | undefined) {
   switch (insertPosition) {
     case "append":
       originContainer.appendChild(newElement)
@@ -452,18 +451,51 @@ function insertResult(originContainer: HTMLElement, newElement: HTMLDivElement, 
   }
 }
 
+function resolveInsertionTarget(rule: SearchEngineRule) {
+  const defaultContainer = getResultContainer(rule)
+  const defaultInsertPosition = rule.insertPosition || "prepend"
+
+  if (!(rule.name === "DuckDuckGo" || isDuckDuckGoPage(window.location.href))) {
+    return {
+      originContainer: defaultContainer,
+      insertPosition: defaultInsertPosition
+    }
+  }
+
+  const reactLayout = document.querySelector<HTMLElement>("#react-layout")
+  if (reactLayout) {
+    return {
+      originContainer: reactLayout,
+      insertPosition: "beforebegin" as const
+    }
+  }
+
+  const webContentWrapper = document.querySelector<HTMLElement>("#web_content_wrapper")
+  if (webContentWrapper) {
+    return {
+      originContainer: webContentWrapper,
+      insertPosition: "afterbegin" as const
+    }
+  }
+
+  return {
+    originContainer: defaultContainer,
+    insertPosition: defaultInsertPosition
+  }
+}
+
 function doWork() {
   if (!currentSearchEngineRule || !showSearchResult || !resultElement) {
     return
   }
 
-  const originContainer = getResultContainer(currentSearchEngineRule)
+  const { originContainer, insertPosition } = resolveInsertionTarget(currentSearchEngineRule)
   if (!originContainer) {
     return
   }
 
   clearResult()
-  insertResult(originContainer, resultElement, currentSearchEngineRule)
+  insertResult(originContainer, resultElement, insertPosition)
 }
 
 function createResult() {
