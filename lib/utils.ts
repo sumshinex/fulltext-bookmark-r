@@ -255,7 +255,7 @@ export function getSearchEngineRule(url: string, customRules: SearchEngineRule[]
     {
       name: "DuckDuckGo",
       urlPattern: "^https://duckduckgo\\.com/.*",
-      containerSelector: "#links",
+      containerSelector: "main",
       queryParam: "q",
       insertPosition: "prepend"
     },
