@@ -143,34 +143,117 @@ const getContextErrorMessage = (context: SearchEnginePageContext) => {
   return chrome.i18n.getMessage("settingPageSettingSearchGenerateContextError")
 }
 
-const hasSufficientGeneratedRule = (rule: SearchEngineRule) =>
-  Boolean(
-    rule?.urlPattern &&
-      (rule.queryParam || rule.queryInputSelector) &&
-      (rule.containerId || rule.containerSelector)
-  )
+const normalizeCandidate = (value?: string) => value?.trim() || ""
 
-const enrichGeneratedRule = (
+const includesCandidate = (candidates: string[], value?: string) => {
+  const normalizedValue = normalizeCandidate(value)
+  return normalizedValue
+    ? candidates.some((candidate) => normalizeCandidate(candidate) === normalizedValue)
+    : false
+}
+
+const escapeRegex = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+
+const buildUrlPatternCandidate = (url: string) => {
+  if (!url) {
+    return ""
+  }
+
+  try {
+    const parsed = new URL(url)
+    return `^${escapeRegex(`${parsed.origin}${parsed.pathname}`)}.*`
+  } catch {
+    return `^${escapeRegex(url)}$`
+  }
+}
+
+const matchesContextUrl = (urlPattern: string | undefined, url: string) => {
+  if (!urlPattern || !url) {
+    return false
+  }
+
+  try {
+    return new RegExp(urlPattern).test(url)
+  } catch {
+    return false
+  }
+}
+
+const pickQueryFields = (
   rule: SearchEngineRule,
   context: SearchEnginePageContext
-): SearchEngineRule => ({
-  ...rule,
-  queryParam:
-    rule.queryParam ||
-    context.queryParamCandidates[0] ||
-    undefined,
-  queryInputSelector:
-    rule.queryParam ? rule.queryInputSelector : rule.queryInputSelector || context.queryInputCandidates[0] || undefined,
-  containerSelector:
-    rule.containerSelector ||
-    context.containerSelectorCandidates[0] ||
-    undefined,
-  containerId:
-    rule.containerSelector
-      ? rule.containerId
-      : rule.containerId || context.containerIdCandidates[0] || undefined,
-  insertPosition: rule.insertPosition || "prepend"
-})
+) => {
+  if (includesCandidate(context.queryParamCandidates, rule.queryParam)) {
+    return {
+      queryParam: normalizeCandidate(rule.queryParam),
+      queryInputSelector: undefined
+    }
+  }
+
+  if (context.queryParamCandidates.length) {
+    return {
+      queryParam: context.queryParamCandidates[0],
+      queryInputSelector: undefined
+    }
+  }
+
+  if (includesCandidate(context.queryInputCandidates, rule.queryInputSelector)) {
+    return {
+      queryParam: undefined,
+      queryInputSelector: normalizeCandidate(rule.queryInputSelector)
+    }
+  }
+
+  if (context.queryInputCandidates.length) {
+    return {
+      queryParam: undefined,
+      queryInputSelector: context.queryInputCandidates[0]
+    }
+  }
+
+  return {
+    queryParam: normalizeCandidate(rule.queryParam) || undefined,
+    queryInputSelector: normalizeCandidate(rule.queryInputSelector) || undefined
+  }
+}
+
+const pickContainerFields = (
+  rule: SearchEngineRule,
+  context: SearchEnginePageContext
+) => {
+  if (includesCandidate(context.containerSelectorCandidates, rule.containerSelector)) {
+    return {
+      containerSelector: normalizeCandidate(rule.containerSelector),
+      containerId: undefined
+    }
+  }
+
+  if (context.containerSelectorCandidates.length) {
+    return {
+      containerSelector: context.containerSelectorCandidates[0],
+      containerId: undefined
+    }
+  }
+
+  if (includesCandidate(context.containerIdCandidates, rule.containerId)) {
+    return {
+      containerSelector: undefined,
+      containerId: normalizeCandidate(rule.containerId)
+    }
+  }
+
+  if (context.containerIdCandidates.length) {
+    return {
+      containerSelector: undefined,
+      containerId: context.containerIdCandidates[0]
+    }
+  }
+
+  return {
+    containerSelector: normalizeCandidate(rule.containerSelector) || undefined,
+    containerId: normalizeCandidate(rule.containerId) || undefined
+  }
+}
 
 const isGeneratedRuleValid = (rule: SearchEngineRule) =>
   !validateCustomSearchEngines(JSON.stringify([rule]))
@@ -179,12 +262,17 @@ const selectBestGeneratedRule = (
   rule: SearchEngineRule,
   context: SearchEnginePageContext
 ): SearchEngineRule => {
-  if (hasSufficientGeneratedRule(rule)) {
-    return rule
+  const normalizedRule: SearchEngineRule = {
+    ...rule,
+    urlPattern: matchesContextUrl(rule.urlPattern, context.url)
+      ? rule.urlPattern
+      : buildUrlPatternCandidate(context.url),
+    ...pickQueryFields(rule, context),
+    ...pickContainerFields(rule, context),
+    insertPosition: rule.insertPosition || "prepend"
   }
 
-  const enrichedRule = enrichGeneratedRule(rule, context)
-  return isGeneratedRuleValid(enrichedRule) ? enrichedRule : rule
+  return isGeneratedRuleValid(normalizedRule) ? normalizedRule : rule
 }
 
 const getGPTSettingsUrl = () => {
