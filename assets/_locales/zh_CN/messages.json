@@ -337,6 +337,14 @@
     "message": "无法从当前标签页收集足够的页面上下文。",
     "description": "收集页面上下文失败提示"
   },
+  "settingPageSettingSearchGenerateContextMissingQuery": {
+    "message": "当前标签页缺少可识别的搜索词或查询参数。",
+    "description": "生成规则时缺少查询上下文提示"
+  },
+  "settingPageSettingSearchGenerateContextMissingContainer": {
+    "message": "当前标签页缺少可识别的结果容器线索，请先打开一个搜索结果页再试。",
+    "description": "生成规则时缺少容器上下文提示"
+  },
   "settingPageSettingSearchGenerateTestUnavailable": {
     "message": "无法在当前标签页测试该规则。",
     "description": "规则测试不可用提示"

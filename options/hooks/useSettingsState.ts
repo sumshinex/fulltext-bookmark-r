@@ -1,5 +1,6 @@
 import { useState } from "react"
 import { useDispatch, useSelector } from "react-redux"
+import { persistor } from "~store/store"
 import {
   addGptEndpoint,
   AppStat,
@@ -115,6 +116,15 @@ export const useSettingsState = () => {
     setTempPageExpireTimeInDays(value)
   }
 
+  const flushPersistedState = () => {
+    void persistor.flush()
+  }
+
+  const dispatchAndFlush = (action) => {
+    dispatch(action)
+    flushPersistedState()
+  }
+
   const handlePageExpireTimeSubmit = () => {
     if (
       !tempPageExpireTimeInDays ||
@@ -123,11 +133,11 @@ export const useSettingsState = () => {
       tempPageExpireTimeInDays > 365 * 100
     ) {
       setTempPageExpireTimeInDays(60)
-      dispatch(setTempPageExpireTime(60 * 1000 * 60 * 60 * 24))
+      dispatchAndFlush(setTempPageExpireTime(60 * 1000 * 60 * 60 * 24))
       return
     }
 
-    dispatch(
+    dispatchAndFlush(
       setTempPageExpireTime(tempPageExpireTimeInDays * 1000 * 60 * 60 * 24)
     )
   }
@@ -151,11 +161,11 @@ export const useSettingsState = () => {
       tempMaxResults > 100
     ) {
       setTempMaxResults(20)
-      dispatch(setMaxResults(20))
+      dispatchAndFlush(setMaxResults(20))
       return
     }
 
-    dispatch(setMaxResults(tempMaxResults))
+    dispatchAndFlush(setMaxResults(tempMaxResults))
   }
 
   const handleForbiddenURLsChange = (e) => {
@@ -163,7 +173,7 @@ export const useSettingsState = () => {
   }
 
   const handleBlurForbiddenURLs = () => {
-    dispatch(setForbiddenURLs(tempForbiddenURLs.split("\n").filter((x) => x)))
+    dispatchAndFlush(setForbiddenURLs(tempForbiddenURLs.split("\n").filter((x) => x)))
   }
 
   const handleCustomSearchEnginesChange = (e) => {
@@ -178,7 +188,7 @@ export const useSettingsState = () => {
     if (validationError) {
       return
     }
-    dispatch(setCustomSearchEngines(tempCustomSearchEngines))
+    dispatchAndFlush(setCustomSearchEngines(tempCustomSearchEngines))
   }
 
   const applyCustomSearchEngines = (nextValue: string) => {
@@ -188,7 +198,7 @@ export const useSettingsState = () => {
     if (validationError) {
       return false
     }
-    dispatch(setCustomSearchEngines(nextValue))
+    dispatchAndFlush(setCustomSearchEngines(nextValue))
     return true
   }
 
@@ -197,7 +207,7 @@ export const useSettingsState = () => {
   }
 
   const handleBlurRemoteStoreURL = () => {
-    dispatch(setRemoteStoreURL(tempRemoteStoreURL))
+    dispatchAndFlush(setRemoteStoreURL(tempRemoteStoreURL))
   }
 
   const handleWebdavBaseUrlChange = (e) => {
@@ -239,7 +249,7 @@ export const useSettingsState = () => {
   }
 
   const handleBlurWebdavConfig = () => {
-    dispatch(
+    dispatchAndFlush(
       setWebdavConfig({
         baseUrl: tempWebdavBaseUrl.trim(),
         username: tempWebdavUsername.trim(),
@@ -255,42 +265,42 @@ export const useSettingsState = () => {
   }
 
   const handleSetWebdavStatus = (status) => {
-    dispatch(setWebdavStatus(status))
+    dispatchAndFlush(setWebdavStatus(status))
   }
 
   const handleAddGptEndpoint = (endpoint: ApiEndpoint) => {
-    dispatch(addGptEndpoint(endpoint))
+    dispatchAndFlush(addGptEndpoint(endpoint))
   }
 
   const handleUpdateGptEndpoint = (endpoint: ApiEndpoint) => {
-    dispatch(updateGptEndpoint(endpoint))
+    dispatchAndFlush(updateGptEndpoint(endpoint))
   }
 
   const handleRemoveGptEndpoint = (endpointId: string) => {
-    dispatch(removeGptEndpoint(endpointId))
+    dispatchAndFlush(removeGptEndpoint(endpointId))
   }
 
   const handleToggleGptEndpointEnabled = (endpointId: string) => {
-    dispatch(toggleGptEndpointEnabled(endpointId))
+    dispatchAndFlush(toggleGptEndpointEnabled(endpointId))
   }
 
   const handleSetGptBindings = (bindings: EndpointBindings) => {
-    dispatch(setGptBindings(bindings))
+    dispatchAndFlush(setGptBindings(bindings))
   }
 
   const handleSetGptDefaultModels = (models: ModelDefaults) => {
-    dispatch(setGptDefaultModels(models))
+    dispatchAndFlush(setGptDefaultModels(models))
   }
 
   const handleSetGptPromptTemplate = (template: string) => {
-    dispatch(setGptPromptTemplate(template))
+    dispatchAndFlush(setGptPromptTemplate(template))
   }
 
   const handleSetAvailableModelsForEndpoint = (
     endpointId: string,
     models: string[]
   ) => {
-    dispatch(setAvailableModelsForEndpoint({ endpointId, models }))
+    dispatchAndFlush(setAvailableModelsForEndpoint({ endpointId, models }))
   }
 
   return {

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { useDispatch } from "react-redux"
+import { persistor } from "~store/store"
 import { Feature } from "./Feature"
 import { Donate } from "./Donate"
 import { SettingsSidebar } from "./components/SettingsSidebar"
@@ -101,37 +102,45 @@ export const SettingView = () => {
     setSidebarCollapsed(collapsed)
   }, [])
 
+  const dispatchAndFlush = useCallback(
+    (action) => {
+      dispatch(action)
+      void persistor.flush()
+    },
+    [dispatch]
+  )
+
   const handleToggleSearchEngineAdaption = useCallback(() => {
-    dispatch(toggleSearchEngineAdaption())
-  }, [dispatch, toggleSearchEngineAdaption])
+    dispatchAndFlush(toggleSearchEngineAdaption())
+  }, [dispatchAndFlush, toggleSearchEngineAdaption])
 
   const handleToggleWeiboSupport = useCallback(() => {
-    dispatch(toggleWeiboSupport())
-  }, [dispatch, toggleWeiboSupport])
+    dispatchAndFlush(toggleWeiboSupport())
+  }, [dispatchAndFlush, toggleWeiboSupport])
 
   const handleToggleShowOnlyBookmarkedResults = useCallback(() => {
-    dispatch(toggleShowOnlyBookmarkedResults())
-  }, [dispatch, toggleShowOnlyBookmarkedResults])
+    dispatchAndFlush(toggleShowOnlyBookmarkedResults())
+  }, [dispatchAndFlush, toggleShowOnlyBookmarkedResults])
 
   const handleToggleStoreEveryPage = useCallback(() => {
-    dispatch(toggleStoreEveryPage())
-  }, [dispatch, toggleStoreEveryPage])
+    dispatchAndFlush(toggleStoreEveryPage())
+  }, [dispatchAndFlush, toggleStoreEveryPage])
 
   const handleToggleBookmarkAdaption = useCallback(() => {
-    dispatch(toggleBookmarkAdaption())
-  }, [dispatch, toggleBookmarkAdaption])
+    dispatchAndFlush(toggleBookmarkAdaption())
+  }, [dispatchAndFlush, toggleBookmarkAdaption])
 
   const handleToggleRemoteStore = useCallback(() => {
-    dispatch(toggleRemoteStore())
-  }, [dispatch, toggleRemoteStore])
+    dispatchAndFlush(toggleRemoteStore())
+  }, [dispatchAndFlush, toggleRemoteStore])
 
   const handleToggleRemoteStoreEveryPage = useCallback(() => {
-    dispatch(toggleRemoteStoreEveryPage())
-  }, [dispatch, toggleRemoteStoreEveryPage])
+    dispatchAndFlush(toggleRemoteStoreEveryPage())
+  }, [dispatchAndFlush, toggleRemoteStoreEveryPage])
 
   const handleToggleShowAskGPT = useCallback(() => {
-    dispatch(toggleShowAskGPT())
-  }, [dispatch, toggleShowAskGPT])
+    dispatchAndFlush(toggleShowAskGPT())
+  }, [dispatchAndFlush, toggleShowAskGPT])
 
   const generalSettingsProps = useMemo(
     () => ({

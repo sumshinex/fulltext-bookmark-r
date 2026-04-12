@@ -2,7 +2,9 @@ import { useMemo, useState } from "react"
 import { useDispatch, useSelector } from "react-redux"
 
 import {
+  getUrlVars,
   validateCustomSearchEngines,
+  type SearchEnginePageContext,
   type SearchEngineRule
 } from "~lib/utils"
 import { setCustomSearchEngines, type AppStat } from "~store/stat-slice"
@@ -25,6 +27,155 @@ interface SavedRulesReport {
 }
 
 const buttonClassName = "text-blue-500 disabled:text-gray-500"
+
+const buildFallbackSearchEngineContext = async (
+  tabId: number
+): Promise<SearchEnginePageContext> => {
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
+  const url = tab?.url || ""
+  const title = tab?.title || ""
+  const vars = getUrlVars(url)
+  const query =
+    Object.values(vars).find((value) => typeof value === "string" && value.trim()) || ""
+
+  let pageTextHints: string[] = []
+  try {
+    const [{ result }] = await chrome.scripting.executeScript({
+      target: { tabId },
+      func: () => {
+        const selectors = [
+          "main",
+          "[role='main']",
+          "#search",
+          "#results",
+          "#links",
+          "#b_results",
+          "#center_col",
+          "#content_left"
+        ]
+        return selectors
+          .map((selector) => document.querySelector(selector)?.textContent?.trim() || "")
+          .filter(Boolean)
+          .map((text) => text.slice(0, 160))
+          .slice(0, 6)
+      }
+    })
+    pageTextHints = Array.isArray(result) ? result : []
+  } catch {
+    pageTextHints = []
+  }
+
+  return {
+    url,
+    title,
+    query: typeof query === "string" ? query : "",
+    queryParamCandidates: Object.keys(vars).slice(0, 10),
+    queryInputCandidates: [],
+    containerIdCandidates: [],
+    containerSelectorCandidates: [],
+    pageTextHints
+  }
+}
+
+const normalizeCollectedContext = (
+  context: { url?: string } | undefined,
+  fallback: SearchEnginePageContext
+): SearchEnginePageContext => ({
+  url: context?.url || fallback.url,
+  title: (context as SearchEnginePageContext | undefined)?.title || fallback.title,
+  query: (context as SearchEnginePageContext | undefined)?.query || fallback.query,
+  queryParamCandidates:
+    (context as SearchEnginePageContext | undefined)?.queryParamCandidates ||
+    fallback.queryParamCandidates,
+  queryInputCandidates:
+    (context as SearchEnginePageContext | undefined)?.queryInputCandidates ||
+    fallback.queryInputCandidates,
+  containerIdCandidates:
+    (context as SearchEnginePageContext | undefined)?.containerIdCandidates ||
+    fallback.containerIdCandidates,
+  containerSelectorCandidates:
+    (context as SearchEnginePageContext | undefined)?.containerSelectorCandidates ||
+    fallback.containerSelectorCandidates,
+  pageTextHints:
+    (context as SearchEnginePageContext | undefined)?.pageTextHints ||
+    fallback.pageTextHints
+})
+
+const hasEnoughContext = (context: SearchEnginePageContext) =>
+  Boolean(
+    context.url &&
+      (context.query ||
+        context.queryParamCandidates.length ||
+        context.queryInputCandidates.length ||
+        context.containerIdCandidates.length ||
+        context.containerSelectorCandidates.length ||
+        context.pageTextHints.length)
+  )
+
+const getContextErrorMessage = (context: SearchEnginePageContext) => {
+  if (!context.url) {
+    return chrome.i18n.getMessage("settingPageSettingSearchGenerateContextError")
+  }
+
+  if (!context.query && !context.queryParamCandidates.length && !context.queryInputCandidates.length) {
+    return chrome.i18n.getMessage("settingPageSettingSearchGenerateContextMissingQuery")
+  }
+
+  if (
+    !context.containerIdCandidates.length &&
+    !context.containerSelectorCandidates.length &&
+    !context.pageTextHints.length
+  ) {
+    return chrome.i18n.getMessage("settingPageSettingSearchGenerateContextMissingContainer")
+  }
+
+  return chrome.i18n.getMessage("settingPageSettingSearchGenerateContextError")
+}
+
+const hasSufficientGeneratedRule = (rule: SearchEngineRule) =>
+  Boolean(
+    rule?.urlPattern &&
+      (rule.queryParam || rule.queryInputSelector) &&
+      (rule.containerId || rule.containerSelector)
+  )
+
+const enrichGeneratedRule = (
+  rule: SearchEngineRule,
+  context: SearchEnginePageContext
+): SearchEngineRule => ({
+  ...rule,
+  queryParam:
+    rule.queryParam ||
+    context.queryParamCandidates[0] ||
+    undefined,
+  queryInputSelector:
+    rule.queryParam ? rule.queryInputSelector : rule.queryInputSelector || context.queryInputCandidates[0] || undefined,
+  containerSelector:
+    rule.containerSelector ||
+    context.containerSelectorCandidates[0] ||
+    undefined,
+  containerId:
+    rule.containerSelector
+      ? rule.containerId
+      : rule.containerId || context.containerIdCandidates[0] || undefined,
+  insertPosition: rule.insertPosition || "prepend"
+})
+
+const isGeneratedRuleValid = (rule: SearchEngineRule) =>
+  !validateCustomSearchEngines(JSON.stringify([rule]))
+
+const selectBestGeneratedRule = (
+  rule: SearchEngineRule,
+  context: SearchEnginePageContext
+): SearchEngineRule => {
+  if (hasSufficientGeneratedRule(rule)) {
+    return rule
+  }
+
+  const enrichedRule = enrichGeneratedRule(rule, context)
+  return isGeneratedRuleValid(enrichedRule) ? enrichedRule : rule
+}
+
 const customSearchEnginesAnchor = "custom-search-engines"
 
 const getRuleLabel = (rule: SearchEngineRule) => rule.name || rule.urlPattern
@@ -179,12 +330,21 @@ export const SearchEngineRulePanel = () => {
     clearSavedRulesReport()
     try {
       const activeTabId = await getActiveTabId()
-      const pageContext = (await chrome.tabs.sendMessage(activeTabId, {
-        command: "collect_search_engine_context"
-      })) as unknown as { url?: string } | undefined
+      let collectedContext: { url?: string } | undefined
 
-      if (!pageContext?.url) {
-        setGenerateResult(chrome.i18n.getMessage("settingPageSettingSearchGenerateContextError"))
+      try {
+        collectedContext = (await chrome.tabs.sendMessage(activeTabId, {
+          command: "collect_search_engine_context"
+        })) as unknown as { url?: string } | undefined
+      } catch {
+        collectedContext = undefined
+      }
+
+      const fallbackContext = await buildFallbackSearchEngineContext(activeTabId)
+      const pageContext = normalizeCollectedContext(collectedContext, fallbackContext)
+
+      if (!hasEnoughContext(pageContext)) {
+        setGenerateResult(getContextErrorMessage(pageContext))
         setGeneratedRuleText("")
         return
       }
@@ -200,7 +360,8 @@ export const SearchEngineRulePanel = () => {
         return
       }
 
-      setGeneratedRuleText(JSON.stringify(response.rule, null, 2))
+      const rule = selectBestGeneratedRule(response.rule, pageContext)
+      setGeneratedRuleText(JSON.stringify(rule, null, 2))
       setGenerateResult(chrome.i18n.getMessage("settingPageSettingSearchGenerateSuccess"))
     } catch (e: any) {
       setGeneratedRuleText("")

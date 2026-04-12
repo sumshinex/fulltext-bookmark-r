@@ -337,6 +337,14 @@
     "message": "Could not collect enough page context from the current tab.",
     "description": "Collect page context failure message."
   },
+  "settingPageSettingSearchGenerateContextMissingQuery": {
+    "message": "The current tab is missing a recognizable search query or query parameter.",
+    "description": "Missing query context for rule generation."
+  },
+  "settingPageSettingSearchGenerateContextMissingContainer": {
+    "message": "The current tab is missing recognizable result container hints. Open a search results page and try again.",
+    "description": "Missing container context for rule generation."
+  },
   "settingPageSettingSearchGenerateTestUnavailable": {
     "message": "Could not test the rule on the current tab.",
     "description": "Rule test unavailable message."
