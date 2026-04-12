@@ -90,6 +90,24 @@ persistor.subscribe(() => {
   userOps = store?.getState()
 });
 
+async function waitForPersistorBootstrap() {
+  if (persistor.getState().bootstrapped) {
+    return
+  }
+
+  await new Promise<void>((resolve) => {
+    const unsubscribe = persistor.subscribe(() => {
+      if (!persistor.getState().bootstrapped) {
+        return
+      }
+
+      unsubscribe()
+      resolve()
+    })
+  })
+}
+
+
 
 // ==============================================================
 // keep alive
@@ -1037,11 +1055,17 @@ function getBookmarksOnInstalled(){
 
 chrome.runtime.onInstalled.addListener(() => {
   getBookmarksOnInstalled()
-  void scheduleWebdavAutoBackup()
+  void (async () => {
+    await waitForPersistorBootstrap()
+    await scheduleWebdavAutoBackup()
+  })()
 })
 
 chrome.runtime.onStartup.addListener(() => {
-  void scheduleWebdavAutoBackup()
+  void (async () => {
+    await waitForPersistorBootstrap()
+    await scheduleWebdavAutoBackup()
+  })()
 })
 
 chrome.alarms.onAlarm.addListener((alarm) => {
