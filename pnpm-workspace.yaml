@@ -1,2 +1,9 @@
-ignoredBuiltDependencies:
+packages:
+  - .
+
+onlyBuiltDependencies:
   - sharp
+  - '@parcel/watcher'
+  - esbuild
+  - lmdb
+  - msgpackr-extract
