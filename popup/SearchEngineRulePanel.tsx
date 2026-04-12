@@ -27,6 +27,12 @@ interface SavedRulesReport {
   unmatchedResults: string[]
 }
 
+interface RuleRetryState {
+  context: SearchEnginePageContext
+  previousRule: SearchEngineRule
+  response: RuleTestResponse
+}
+
 const buttonClassName = "text-blue-500 disabled:text-gray-500"
 const secondaryButtonClassName =
   "text-blue-500 disabled:text-gray-500 disabled:cursor-not-allowed"
@@ -318,6 +324,8 @@ export const SearchEngineRulePanel = () => {
   const [generateLoading, setGenerateLoading] = useState(false)
   const [generateResult, setGenerateResult] = useState("")
   const [generatedRuleText, setGeneratedRuleText] = useState("")
+  const [lastGeneratedRuleContext, setLastGeneratedRuleContext] = useState<SearchEnginePageContext | null>(null)
+  const [ruleRetryState, setRuleRetryState] = useState<RuleRetryState | null>(null)
   const [savedRulesReport, setSavedRulesReport] = useState<SavedRulesReport | null>(null)
   const [showMatchedSavedRules, setShowMatchedSavedRules] = useState(false)
   const [showUnmatchedSavedRules, setShowUnmatchedSavedRules] = useState(true)
@@ -358,6 +366,59 @@ export const SearchEngineRulePanel = () => {
     setShowMatchedSavedRules(false)
     setShowUnmatchedSavedRules(true)
   }
+
+  const resetRuleRetryState = () => {
+    setRuleRetryState(null)
+  }
+
+  const createRefinedRule = async (retryState: RuleRetryState) => {
+    const response = await chrome.runtime.sendMessage({
+      command: "regenerate_search_engine_rule",
+      context: retryState.context,
+      previousRule: retryState.previousRule,
+      issues: retryState.response.issues,
+      suggestions: retryState.response.suggestions,
+      matchedContainer: retryState.response.matchedContainer,
+      matchedQuery: retryState.response.matchedQuery,
+      endpoints: gptEndpoints,
+      bindings: gptBindings,
+      defaultModels: gptDefaultModels,
+      promptTemplate: gptPromptTemplate,
+    })
+
+    if (!response?.ok || !response?.rule) {
+      throw new Error(response?.error || "Request failed")
+    }
+
+    return selectBestGeneratedRule(response.rule, retryState.context)
+  }
+
+  const handleRetryGeneratedRule = async () => {
+    if (!ruleRetryState) {
+      return
+    }
+
+    setGenerateLoading(true)
+    clearSavedRulesReport()
+    try {
+      const nextRule = await createRefinedRule(ruleRetryState)
+      setGeneratedRuleText(JSON.stringify(nextRule, null, 2))
+      setLastGeneratedRuleContext(ruleRetryState.context)
+      setGenerateResult(chrome.i18n.getMessage("popupRulePanelRegenerateSuccess"))
+      resetRuleRetryState()
+    } catch (e: any) {
+      setGenerateResult(`Error: ${e.message}`)
+    } finally {
+      setGenerateLoading(false)
+    }
+  }
+
+  const showRetryAction = Boolean(ruleRetryState)
+  const retryActionDisabled = generateLoading || !ruleRetryState
+  const retryActionLabel = generateLoading
+    ? chrome.i18n.getMessage("popupRulePanelRegenerateLoading")
+    : chrome.i18n.getMessage("popupRulePanelRegenerateBtn")
+  const regenerateHint = chrome.i18n.getMessage("popupRulePanelRegenerateHint")
 
   const showTextResult = (result: string) => {
     clearSavedRulesReport()
@@ -410,6 +471,8 @@ export const SearchEngineRulePanel = () => {
     try {
       if (ruleGenerationConfigError) {
         setGeneratedRuleText("")
+        setLastGeneratedRuleContext(null)
+        resetRuleRetryState()
         setGenerateResult(createRuleConfigErrorResult(ruleGenerationConfigError))
         return
       }
@@ -431,6 +494,8 @@ export const SearchEngineRulePanel = () => {
       if (!hasEnoughContext(pageContext)) {
         setGenerateResult(getContextErrorMessage(pageContext))
         setGeneratedRuleText("")
+        setLastGeneratedRuleContext(null)
+        resetRuleRetryState()
         return
       }
 
@@ -445,15 +510,21 @@ export const SearchEngineRulePanel = () => {
 
       if (!response?.ok || !response?.rule) {
         setGeneratedRuleText("")
+        setLastGeneratedRuleContext(null)
+        resetRuleRetryState()
         setGenerateResult(`Error: ${response?.error || "Request failed"}`)
         return
       }
 
       const rule = selectBestGeneratedRule(response.rule, pageContext)
       setGeneratedRuleText(JSON.stringify(rule, null, 2))
+      setLastGeneratedRuleContext(pageContext)
+      resetRuleRetryState()
       setGenerateResult(chrome.i18n.getMessage("settingPageSettingSearchGenerateSuccess"))
     } catch (e: any) {
       setGeneratedRuleText("")
+      setLastGeneratedRuleContext(null)
+      resetRuleRetryState()
       setGenerateResult(`Error: ${e.message}`)
     } finally {
       setGenerateLoading(false)
@@ -526,10 +597,21 @@ export const SearchEngineRulePanel = () => {
         setGenerateResult(
           chrome.i18n.getMessage("settingPageSettingSearchGenerateTestUnavailable")
         )
+        resetRuleRetryState()
         return
       }
 
       setGenerateResult(formatRuleTestResult(response))
+      if (response.ok || !lastGeneratedRuleContext) {
+        resetRuleRetryState()
+        return
+      }
+
+      setRuleRetryState({
+        context: lastGeneratedRuleContext,
+        previousRule: rule,
+        response
+      })
     } catch (e: any) {
       setGenerateResult(`Error: ${e.message}`)
     }
@@ -763,9 +845,17 @@ export const SearchEngineRulePanel = () => {
               <textarea
                 className="w-full mt-3 font-mono text-sm rounded-lg"
                 value={generatedRuleText}
-                onChange={(e) => setGeneratedRuleText(e.target.value)}
+                onChange={(e) => {
+                  setGeneratedRuleText(e.target.value)
+                  resetRuleRetryState()
+                }}
                 rows={Math.max(generatedRuleText.split("\n").length, 8)}
               />
+              {showRetryAction ? (
+                <div className="mt-2 text-xs text-gray-400 whitespace-pre-wrap">
+                  {regenerateHint}
+                </div>
+              ) : null}
               <div className="mt-2 flex gap-4 flex-wrap">
                 <button className={buttonClassName} onClick={handleAppendGeneratedRule}>
                   {chrome.i18n.getMessage("settingPageSettingSearchGenerateAppendBtn")}
@@ -776,6 +866,14 @@ export const SearchEngineRulePanel = () => {
                 <button className={buttonClassName} onClick={handleTestGeneratedRule}>
                   {chrome.i18n.getMessage("settingPageSettingSearchGenerateTestBtn")}
                 </button>
+                {showRetryAction ? (
+                  <button
+                    className={buttonClassName}
+                    onClick={handleRetryGeneratedRule}
+                    disabled={retryActionDisabled}>
+                    {retryActionLabel}
+                  </button>
+                ) : null}
                 <button className={buttonClassName} onClick={handleCopyGeneratedRule}>
                   {chrome.i18n.getMessage("settingPageSettingSearchGenerateCopyBtn")}
                 </button>

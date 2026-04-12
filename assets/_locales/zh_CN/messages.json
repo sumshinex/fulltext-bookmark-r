@@ -197,6 +197,22 @@
     "message": "已测试规则：共 $1 条 / 命中 $2 条 / 未命中 $3 条",
     "description": "Saved rules overview summary in popup diagnostics."
   },
+  "popupRulePanelRegenerateBtn": {
+    "message": "根据测试结果重新生成",
+    "description": "Regenerate the generated rule using failed test diagnostics."
+  },
+  "popupRulePanelRegenerateLoading": {
+    "message": "正在纠正规则...",
+    "description": "Loading label while regenerating rule from diagnostics."
+  },
+  "popupRulePanelRegenerateSuccess": {
+    "message": "已根据未命中的测试结果重新生成规则，可再次测试确认。",
+    "description": "Success message after regenerating rule from diagnostics."
+  },
+  "popupRulePanelRegenerateHint": {
+    "message": "如果测试未命中，可用当前失败诊断重新生成一版更可能命中的规则。手动修改规则后会清除这次纠错上下文。",
+    "description": "Hint shown when retry regeneration is available."
+  },
   "popupRulePanelSavedRulesMatchedDivider": {
     "message": "---------------- 命中详情 ----------------",
     "description": "Divider before matched saved rules details."

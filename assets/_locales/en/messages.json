@@ -197,6 +197,22 @@
     "message": "Saved rules tested: $1 total / $2 matched / $3 unmatched",
     "description": "Saved rules overview summary in popup diagnostics."
   },
+  "popupRulePanelRegenerateBtn": {
+    "message": "Regenerate from test result",
+    "description": "Regenerate the generated rule using failed test diagnostics."
+  },
+  "popupRulePanelRegenerateLoading": {
+    "message": "Regenerating rule...",
+    "description": "Loading label while regenerating rule from diagnostics."
+  },
+  "popupRulePanelRegenerateSuccess": {
+    "message": "Regenerated the rule using the failed test diagnostics. Test it again to confirm.",
+    "description": "Success message after regenerating rule from diagnostics."
+  },
+  "popupRulePanelRegenerateHint": {
+    "message": "If the test fails, you can regenerate a more likely matching rule from the current diagnostics. Manual edits clear this retry context.",
+    "description": "Hint shown when retry regeneration is available."
+  },
   "popupRulePanelSavedRulesMatchedDivider": {
     "message": "---------------- Matched details ----------------",
     "description": "Divider before matched saved rules details."

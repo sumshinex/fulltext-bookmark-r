@@ -31,6 +31,7 @@ import {
   handleUrlRemoveHash,
   isWeibo,
   type SearchEnginePageContext,
+  type SearchEngineRule,
   validateCustomSearchEngines,
   vectorToBlob,
 } from "~lib/utils";
@@ -105,6 +106,22 @@ async function waitForPersistorBootstrap() {
       resolve()
     })
   })
+}
+
+let persistResyncTask: Promise<void> | null = null
+
+async function ensurePersistedStateSynced() {
+  await waitForPersistorBootstrap()
+
+  if (!persistResyncTask) {
+    persistResyncTask = persistor.resync().then(() => {
+      userOps = store.getState()
+    }).finally(() => {
+      persistResyncTask = null
+    })
+  }
+
+  await persistResyncTask
 }
 
 
@@ -356,6 +373,95 @@ function buildSearchEngineRulePrompt(context: SearchEnginePageContext): string {
   ].join("\n");
 }
 
+function buildSearchEngineRuleCorrectionPrompt(input: {
+  context: SearchEnginePageContext;
+  previousRule: SearchEngineRule;
+  issues?: string[];
+  suggestions?: string[];
+  matchedContainer?: string;
+  matchedQuery?: string;
+}): string {
+  return [
+    "Correct one SearchEngineRule JSON object for a browser extension.",
+    "Return JSON only. No markdown, no explanation.",
+    "Allowed keys: name, urlPattern, containerId, containerSelector, queryParam, queryInputSelector, insertPosition.",
+    "Goal: fix the previous rule so it is more likely to match the current page.",
+    "Requirements:",
+    "- Keep fields that already look correct unless the diagnostics suggest changing them.",
+    "- If URL did not match, refine urlPattern to match the current page URL.",
+    "- If container did not match, prefer the suggested container selector/id from diagnostics or page context.",
+    "- If query did not match, prefer the suggested queryParam/queryInputSelector from diagnostics or page context.",
+    "- Prefer queryParam when the query is clearly present in the URL.",
+    "- Prefer containerSelector when it is more stable than containerId.",
+    "- include only one of containerId/containerSelector when possible.",
+    "- include only one of queryParam/queryInputSelector when possible.",
+    "- insertPosition should usually be prepend.",
+    "Current page context:",
+    JSON.stringify(input.context, null, 2),
+    "Previous rule:",
+    JSON.stringify(input.previousRule, null, 2),
+    "Diagnostics:",
+    JSON.stringify(
+      {
+        issues: input.issues || [],
+        suggestions: input.suggestions || [],
+        matchedContainer: input.matchedContainer || "",
+        matchedQuery: input.matchedQuery || "",
+      },
+      null,
+      2
+    )
+  ].join("\n");
+}
+
+async function regenerateSearchEngineRule(
+  input: {
+    context: SearchEnginePageContext;
+    previousRule: SearchEngineRule;
+    issues?: string[];
+    suggestions?: string[];
+    matchedContainer?: string;
+    matchedQuery?: string;
+  },
+  overrides?: {
+    endpoints?: AppStat["gptEndpoints"];
+    bindings?: AppStat["gptBindings"];
+    defaultModels?: AppStat["gptDefaultModels"];
+    promptTemplate?: AppStat["gptPromptTemplate"];
+  }
+) {
+  const pageContext = normalizeSearchEnginePageContext(input.context);
+  if (!pageContext.url) {
+    throw new Error(chrome.i18n.getMessage("gptMissingPageContext"));
+  }
+
+  const response = await runWithCapabilityEndpoint(
+    "chat",
+    async () => {
+      return chat(buildSearchEngineRuleCorrectionPrompt({
+        ...input,
+        context: pageContext,
+      }));
+    },
+    overrides
+  );
+  const jsonText = extractJsonObject(response);
+  const rule = JSON.parse(jsonText);
+  const validationError = validateCustomSearchEngines(JSON.stringify([rule]));
+
+  if (validationError) {
+    throw new Error(validationError);
+  }
+
+  if (!rule.insertPosition) {
+    rule.insertPosition = "prepend";
+  }
+
+  return rule;
+}
+
+
+
 async function runWithCapabilityEndpoint<T>(
   capability: EndpointCapability,
   executor: (config: {
@@ -527,6 +633,8 @@ function normalizeWebdavError(error: unknown) {
 }
 
 async function saveWebdavConfig(config: WebdavConfig) {
+  await ensurePersistedStateSynced()
+
   const nextBackupAt = calculateNextWebdavBackupAt(config)
   store.dispatch(setWebdavConfig(config))
   store.dispatch(
@@ -540,6 +648,7 @@ async function saveWebdavConfig(config: WebdavConfig) {
 }
 
 async function updateWebdavStatus(status: Partial<WebdavStatus>) {
+  await ensurePersistedStateSynced()
   store.dispatch(setWebdavStatus(status))
   await persistor.flush()
 }
@@ -858,6 +967,8 @@ async function exportBackupToWebdav(configInput: Partial<WebdavConfig>) {
 }
 
 async function applySettingsBackupData(payload: SettingsBackupPayload) {
+  await ensurePersistedStateSynced()
+
   const nextSettings = normalizeSettingsBackupData(payload.data)
   const currentState = store.getState() as AppStat
 
@@ -1332,6 +1443,34 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             defaultModels: message.defaultModels,
             promptTemplate: message.promptTemplate,
           });
+          sendResponse({ ok: true, rule });
+        } catch (error) {
+          sendResponse({
+            ok: false,
+            error: error instanceof Error ? error.message : chrome.i18n.getMessage("gptBackgroundGenerateRuleFailed"),
+          });
+        }
+      })();
+      return true;
+    case "regenerate_search_engine_rule":
+      (async () => {
+        try {
+          const rule = await regenerateSearchEngineRule(
+            {
+              context: message.context,
+              previousRule: message.previousRule,
+              issues: message.issues,
+              suggestions: message.suggestions,
+              matchedContainer: message.matchedContainer,
+              matchedQuery: message.matchedQuery,
+            },
+            {
+              endpoints: message.endpoints,
+              bindings: message.bindings,
+              defaultModels: message.defaultModels,
+              promptTemplate: message.promptTemplate,
+            }
+          );
           sendResponse({ ok: true, rule });
         } catch (error) {
           sendResponse({
