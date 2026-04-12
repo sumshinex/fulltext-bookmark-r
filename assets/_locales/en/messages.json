@@ -290,7 +290,7 @@
     "description": "Custom search engine rule note."
   },
   "settingPageSettingSearchCustomEngineExample": {
-    "message": "Example: [{\n  \"name\": \"DuckDuckGo\",\n  \"urlPattern\": \"^https://duckduckgo\\\\.com/.*\",\n  \"containerSelector\": \"#links\",\n  \"queryParam\": \"q\",\n  \"insertPosition\": \"prepend\"\n}]",
+    "message": "Example: [{\n  \"name\": \"DuckDuckGo\",\n  \"urlPattern\": \"^https://duckduckgo\\\\.com/.*[?&]q=.*\",\n  \"containerSelector\": \"#react-layout\",\n  \"queryParam\": \"q\",\n  \"insertPosition\": \"beforebegin\"\n}]",
     "description": "Custom search engine rule example."
   },
   "settingPageSettingSearchGenerateDesp": {

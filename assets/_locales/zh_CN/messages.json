@@ -290,7 +290,7 @@
     "description": "自定义搜索引擎规则注释"
   },
   "settingPageSettingSearchCustomEngineExample": {
-    "message": "示例：[{\n  \"name\": \"DuckDuckGo\",\n  \"urlPattern\": \"^https://duckduckgo\\\\.com/.*\",\n  \"containerSelector\": \"#links\",\n  \"queryParam\": \"q\",\n  \"insertPosition\": \"prepend\"\n}]",
+    "message": "示例：[{\n  \"name\": \"DuckDuckGo\",\n  \"urlPattern\": \"^https://duckduckgo\\\\.com/.*[?&]q=.*\",\n  \"containerSelector\": \"#react-layout\",\n  \"queryParam\": \"q\",\n  \"insertPosition\": \"beforebegin\"\n}]",
     "description": "自定义搜索引擎规则示例"
   },
   "settingPageSettingSearchGenerateDesp": {

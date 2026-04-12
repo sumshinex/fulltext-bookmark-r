@@ -254,10 +254,10 @@ export function getSearchEngineRule(url: string, customRules: SearchEngineRule[]
     },
     {
       name: "DuckDuckGo",
-      urlPattern: "^https://duckduckgo\\.com/.*",
-      containerSelector: "main",
+      urlPattern: "^https://duckduckgo\\.com/.*[?&]q=.*",
+      containerSelector: "#react-layout",
       queryParam: "q",
-      insertPosition: "prepend"
+      insertPosition: "beforebegin"
     },
     {
       name: "Yandex",

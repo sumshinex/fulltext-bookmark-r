@@ -113,12 +113,34 @@ const runWhenDocumentReady = (callback: () => void) => {
   window.addEventListener("load", callback, { once: true })
 }
 
+const isDuckDuckGoPage = (url: string) => /^https:\/\/duckduckgo\.com\/.*[?&]q=.*/.test(url)
+
+const getDuckDuckGoFallbackContainer = () => {
+  const selectors = ["#react-layout", ".results--main", "#web_content_wrapper", "main"]
+  for (const selector of selectors) {
+    const element = document.querySelector<HTMLElement>(selector)
+    if (element) {
+      return element
+    }
+  }
+  return null
+}
+
 function getResultContainer(rule: SearchEngineRule): HTMLElement | null {
   if (rule.containerSelector) {
-    return document.querySelector(rule.containerSelector)
+    const element = document.querySelector<HTMLElement>(rule.containerSelector)
+    if (element) {
+      return element
+    }
   }
   if (rule.containerId) {
-    return document.getElementById(rule.containerId)
+    const element = document.getElementById(rule.containerId)
+    if (element) {
+      return element
+    }
+  }
+  if (rule.name === "DuckDuckGo" || isDuckDuckGoPage(window.location.href)) {
+    return getDuckDuckGoFallbackContainer()
   }
   return null
 }
@@ -212,7 +234,7 @@ const buildRuleTestDiagnostics = (rule: SearchEngineRule, diagnostics: {
   const containerIdCandidates = sortCandidatesByScore(
     uniqueStrings(
       Array.from(
-        document.querySelectorAll<HTMLElement>("main, #content, #search, #results, #links, #center_col, #b_results, #content_left, [role='main']")
+        document.querySelectorAll<HTMLElement>("main, #content, #search, #results, #links, #center_col, #b_results, #content_left, #web_content_wrapper, #react-layout, [role='main']")
       )
         .map((element) => element.id)
         .slice(0, 12)
@@ -221,7 +243,7 @@ const buildRuleTestDiagnostics = (rule: SearchEngineRule, diagnostics: {
   const containerSelectorCandidates = sortCandidatesByScore(
     uniqueStrings(
       Array.from(
-        document.querySelectorAll<HTMLElement>("main, [role='main'], #search-result, #links, #b_results, #center_col, #content_left, .results, .search-results, .serp, .result-list")
+        document.querySelectorAll<HTMLElement>("main, [role='main'], #search-result, #links, #b_results, #center_col, #content_left, #web_content_wrapper, #react-layout, .results, .results--main, .search-results, .serp, .result-list")
       )
         .map((element) => {
           if (element.id) {
@@ -317,7 +339,7 @@ function getSearchEnginePageContext(): SearchEnginePageContext {
   const containerIdCandidates = sortCandidatesByScore(
     uniqueStrings(
       Array.from(
-        document.querySelectorAll<HTMLElement>("main, #content, #search, #results, #links, #center_col, #b_results, #content_left, [role='main']")
+        document.querySelectorAll<HTMLElement>("main, #content, #search, #results, #links, #center_col, #b_results, #content_left, #web_content_wrapper, #react-layout, [role='main']")
       )
         .map((element) => element.id)
         .slice(0, 12)
@@ -327,7 +349,7 @@ function getSearchEnginePageContext(): SearchEnginePageContext {
   const containerSelectorCandidates = sortCandidatesByScore(
     uniqueStrings(
       Array.from(
-        document.querySelectorAll<HTMLElement>("main, [role='main'], #search-result, #links, #b_results, #center_col, #content_left, .results, .search-results, .serp, .result-list")
+        document.querySelectorAll<HTMLElement>("main, [role='main'], #search-result, #links, #b_results, #center_col, #content_left, #web_content_wrapper, #react-layout, .results, .results--main, .search-results, .serp, .result-list")
       )
         .map((element) => {
           if (element.id) {
@@ -376,7 +398,13 @@ function testSearchEngineRule(rule: SearchEngineRule): SearchRuleTestResult {
 
   const container = getResultContainer(rule)
   const matchedQuery = getQueryWord(rule)
-  const matchedContainer = rule.containerSelector || (container?.id ? `#${container.id}` : rule.containerId || "")
+  const matchedContainer = container
+    ? container.id
+      ? `#${container.id}`
+      : typeof container.className === "string" && container.className.trim()
+        ? `.${container.className.trim().split(/\s+/)[0]}`
+        : container.tagName.toLowerCase()
+    : rule.containerSelector || rule.containerId || ""
   const containerMatched = !!container
   const queryMatched = !!matchedQuery
   const ok = urlMatched && containerMatched && queryMatched

@@ -119,10 +119,10 @@ const defaultCustomSearchEngines = JSON.stringify(
   [
     {
       name: "DuckDuckGo",
-      urlPattern: "^https://duckduckgo\\.com/.*",
-      containerSelector: "#links",
+      urlPattern: "^https://duckduckgo\\.com/.*[?&]q=.*",
+      containerSelector: "#react-layout",
       queryParam: "q",
-      insertPosition: "prepend"
+      insertPosition: "beforebegin"
     },
     {
       name: "Yandex",
