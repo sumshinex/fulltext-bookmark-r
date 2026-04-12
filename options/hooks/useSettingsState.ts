@@ -1,4 +1,16 @@
 import { useState } from "react"
+
+const getInitialNavPage = () => {
+  const currentUrl = new URL(window.location.href)
+  const pageValue = currentUrl.searchParams.get("page")
+  const page = Number.parseInt(pageValue || "", 10)
+
+  if (Number.isNaN(page) || page < 0 || page > 5) {
+    return 0
+  }
+
+  return page
+}
 import { useDispatch, useSelector } from "react-redux"
 import { persistor } from "~store/store"
 import {
@@ -70,7 +82,7 @@ export const useSettingsState = () => {
   const webdavConfig = useSelector((state: AppStat) => state.webdavConfig)
   const webdavStatus = useSelector((state: AppStat) => state.webdavStatus)
 
-  const [navPage, setNavPage] = useState(0)
+  const [navPage, setNavPage] = useState(getInitialNavPage)
   const [tempPageExpireTimeInDays, setTempPageExpireTimeInDays] = useState(
     tempPageExpireTime / 1000 / 60 / 60 / 24
   )

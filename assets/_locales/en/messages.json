@@ -31,6 +31,14 @@
     "message": "Request failed. Please check network, base URL, or model settings.",
     "description": "Ask GPT request failed message."
   },
+  "popupAskOpenSettings": {
+    "message": "Open GPT settings",
+    "description": "Open GPT settings from popup Ask GPT."
+  },
+  "popupAskOpenSettingsHint": {
+    "message": "Click \"Open GPT settings\" to review endpoints, bindings, default models, and the prompt template.",
+    "description": "Settings hint when popup Ask GPT configuration is incomplete."
+  },
   "gptBindingUnavailable": {
     "message": "$CAPABILITY$ binding has no available endpoints.",
     "description": "No available endpoints in binding.",
@@ -48,6 +56,10 @@
   "gptMissingEndpointId": {
     "message": "Missing endpoint id.",
     "description": "Missing endpoint id message."
+  },
+  "gptMissingPromptTemplateConfig": {
+    "message": "Missing Ask GPT prompt template. Please configure it in Settings first.",
+    "description": "Missing Ask GPT prompt template message."
   },
   "gptBackgroundFetchModelsFailed": {
     "message": "Failed to fetch models.",
@@ -176,6 +188,10 @@
   "popupRulePanelOpenSettingsHint": {
     "message": "Need full JSON editing? Open Settings and continue in the Custom Search Engine Rules section.",
     "description": "Hint for opening settings page from popup."
+  },
+  "popupRulePanelOpenGPTSettingsHint": {
+    "message": "Click \"Open GPT settings\" to review the Chat binding, default models, and prompt template.",
+    "description": "Hint when search engine rule generation is blocked by GPT configuration."
   },
   "popupRulePanelSavedRulesSummary": {
     "message": "Saved rules tested: $1 total / $2 matched / $3 unmatched",

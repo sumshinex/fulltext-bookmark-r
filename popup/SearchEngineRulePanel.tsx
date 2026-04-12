@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react"
 import { useDispatch, useSelector } from "react-redux"
+import { resolveEndpointBinding } from "~lib/chat"
 
 import {
   getUrlVars,
@@ -27,6 +28,10 @@ interface SavedRulesReport {
 }
 
 const buttonClassName = "text-blue-500 disabled:text-gray-500"
+const secondaryButtonClassName =
+  "text-blue-500 disabled:text-gray-500 disabled:cursor-not-allowed"
+const customSearchEnginesAnchor = "custom-search-engines"
+const gptSettingsPage = 2
 
 const buildFallbackSearchEngineContext = async (
   tabId: number
@@ -176,7 +181,46 @@ const selectBestGeneratedRule = (
   return isGeneratedRuleValid(enrichedRule) ? enrichedRule : rule
 }
 
-const customSearchEnginesAnchor = "custom-search-engines"
+const getGPTSettingsUrl = () => {
+  const optionsBaseUrl = chrome.runtime.getURL("options.html")
+  return `${optionsBaseUrl}?page=${gptSettingsPage}`
+}
+
+const openGPTSettings = async () => {
+  const targetUrl = getGPTSettingsUrl()
+  const existingOptionsTab = await findExistingOptionsTab()
+
+  if (existingOptionsTab?.id) {
+    await chrome.tabs.update(existingOptionsTab.id, {
+      active: true,
+      url: targetUrl
+    })
+    return
+  }
+
+  await chrome.tabs.create({ url: targetUrl, active: true })
+}
+
+const renderGPTSettingsAction = (message: string, onOpenSettings: () => void) => {
+  if (!message) {
+    return null
+  }
+
+  return (
+    <div className="mt-2 flex items-center justify-between gap-3 flex-wrap text-red-500">
+      <span className="whitespace-pre-wrap break-all">{message}</span>
+      <button className={secondaryButtonClassName} onClick={onOpenSettings}>
+        {chrome.i18n.getMessage("popupAskOpenSettings")}
+      </button>
+    </div>
+  )
+}
+
+const getGenerateDisabled = (generateLoading: boolean, configError: string) =>
+  generateLoading || Boolean(configError)
+
+const createRuleConfigErrorResult = (configError: string) =>
+  `${configError}\n\n${chrome.i18n.getMessage("popupRulePanelOpenGPTSettingsHint")}`
 
 const getRuleLabel = (rule: SearchEngineRule) => rule.name || rule.urlPattern
 
@@ -262,6 +306,10 @@ export const SearchEngineRulePanel = () => {
   const customSearchEngines = useSelector(
     (state: AppStat) => state.customSearchEngines
   )
+  const gptEndpoints = useSelector((state: AppStat) => state.gptEndpoints)
+  const gptBindings = useSelector((state: AppStat) => state.gptBindings)
+  const gptDefaultModels = useSelector((state: AppStat) => state.gptDefaultModels)
+  const gptPromptTemplate = useSelector((state: AppStat) => state.gptPromptTemplate)
   const [expanded, setExpanded] = useState(false)
   const customSearchEnginesError = useMemo(
     () => validateCustomSearchEngines(customSearchEngines),
@@ -273,6 +321,37 @@ export const SearchEngineRulePanel = () => {
   const [savedRulesReport, setSavedRulesReport] = useState<SavedRulesReport | null>(null)
   const [showMatchedSavedRules, setShowMatchedSavedRules] = useState(false)
   const [showUnmatchedSavedRules, setShowUnmatchedSavedRules] = useState(true)
+
+  const gptBindingStatus = useMemo(() => {
+    const chatResolution = resolveEndpointBinding({
+      capability: "chat",
+      endpoints: gptEndpoints,
+      bindings: gptBindings,
+      defaultModels: gptDefaultModels,
+    })
+
+    return {
+      hasChat: chatResolution.availableEndpoints.length > 0,
+      chatError: chatResolution.configurationErrors[0] || "",
+    }
+  }, [gptBindings, gptDefaultModels, gptEndpoints])
+
+  const ruleGenerationConfigError = useMemo(() => {
+    if (!gptPromptTemplate?.trim()) {
+      return chrome.i18n.getMessage("gptMissingPromptTemplateConfig")
+    }
+
+    if (!gptBindingStatus.hasChat) {
+      return (
+        gptBindingStatus.chatError ||
+        chrome.i18n.getMessage("gptBindingUnavailable", [
+          chrome.i18n.getMessage("settingPageSettingGPTCapabilityChat"),
+        ])
+      )
+    }
+
+    return ""
+  }, [gptBindingStatus, gptPromptTemplate])
 
   const clearSavedRulesReport = () => {
     setSavedRulesReport(null)
@@ -329,6 +408,12 @@ export const SearchEngineRulePanel = () => {
     setGenerateResult("")
     clearSavedRulesReport()
     try {
+      if (ruleGenerationConfigError) {
+        setGeneratedRuleText("")
+        setGenerateResult(createRuleConfigErrorResult(ruleGenerationConfigError))
+        return
+      }
+
       const activeTabId = await getActiveTabId()
       let collectedContext: { url?: string } | undefined
 
@@ -351,7 +436,11 @@ export const SearchEngineRulePanel = () => {
 
       const response = await chrome.runtime.sendMessage({
         command: "generate_search_engine_rule",
-        context: pageContext
+        context: pageContext,
+        endpoints: gptEndpoints,
+        bindings: gptBindings,
+        defaultModels: gptDefaultModels,
+        promptTemplate: gptPromptTemplate
       })
 
       if (!response?.ok || !response?.rule) {
@@ -522,6 +611,17 @@ export const SearchEngineRulePanel = () => {
     }
   }
 
+  const handleOpenGPTSettings = async () => {
+    try {
+      await openGPTSettings()
+      if (!savedRulesReport && !generateResult) {
+        setGenerateResult(chrome.i18n.getMessage("popupRulePanelOpenGPTSettingsHint"))
+      }
+    } catch (e: any) {
+      showTextResult(`Error: ${e.message}`)
+    }
+  }
+
   const handleCopyGeneratedRule = async () => {
     if (!generatedRuleText) {
       return
@@ -565,11 +665,13 @@ export const SearchEngineRulePanel = () => {
           <div className="text-gray-400 whitespace-pre-wrap mb-3">
             {chrome.i18n.getMessage("settingPageSettingSearchGenerateNote")}
           </div>
+          {renderGPTSettingsAction(ruleGenerationConfigError, handleOpenGPTSettings)}
           <div className="flex gap-3 flex-wrap">
             <button
               className={buttonClassName}
               onClick={handleGenerateRule}
-              disabled={generateLoading}>
+              disabled={getGenerateDisabled(generateLoading, ruleGenerationConfigError)}
+              title={ruleGenerationConfigError || ""}>
               {generateLoading
                 ? chrome.i18n.getMessage("settingPageSettingSearchGenerateLoading")
                 : chrome.i18n.getMessage("settingPageSettingSearchGenerateBtn")}

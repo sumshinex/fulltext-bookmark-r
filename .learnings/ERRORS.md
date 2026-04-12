@@ -150,3 +150,36 @@ TS2345: Argument of type '"delete" | "test" | "backup" | "restore"' is not assig
 - Related Files: options/components/WebDAVBackupSettings.tsx
 
 ---
+
+## [ERR-20260412-001] plasmo-dev-sharp-blocked
+
+**Logged**: 2026-04-12T02:09:01Z
+**Priority**: high
+**Status**: pending
+**Area**: config
+
+### Summary
+`plasmo dev` 无法启动，因为 pnpm 10 拦截了 `sharp` 构建脚本，导致 `sharp-win32-x64.node` 缺失。
+
+### Error
+```text
+Something went wrong installing the "sharp" module
+Cannot find module '../build/Release/sharp-win32-x64.node'
+```
+
+### Context
+- Operation attempted: `pnpm dev` / `plasmo dev`
+- Workspace: `D:/ClaudeWork/fulltext-bookmark-main`
+- Runtime: Node.js v25.0.0, pnpm v10.22.0
+- Additional install output: `Ignored build scripts: @parcel/watcher, esbuild, lmdb, msgpackr-extract, sharp`
+- Cause: 当前依赖安装未允许 `sharp` 的 install/build script 执行，因此 `node_modules/.pnpm/sharp@0.30.7/node_modules/sharp/build` 与 `vendor` 目录均未生成
+- Constraint: `pnpm approve-builds` 进入交互式选择，当前会话无法自动完成
+
+### Suggested Fix
+在项目目录执行一次交互式 `pnpm approve-builds` 并批准 `sharp`（必要时也批准 `@parcel/watcher` / `esbuild` 等被拦截构建包），然后重新运行 `pnpm install` 或 `pnpm rebuild --pending`，再启动 `pnpm dev`。如仍失败，再切换到受支持的 Node LTS（优先 Node 18/20）复装依赖。
+
+### Metadata
+- Reproducible: yes
+- Related Files: package.json, pnpm-lock.yaml
+
+---

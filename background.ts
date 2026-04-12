@@ -926,25 +926,60 @@ async function restoreBackupFromWebdav(
   }
 }
 
-async function generateEmbeddingWithBinding(message: string) {
-  return runWithCapabilityEndpoint("embedding", async () => genEmbedding(message))
-}
-
-async function generateChatWithRefs(message: string, sources) {
-  return runWithCapabilityEndpoint("chat", async () =>
-    chatWithRefs(message, sources)
+async function generateEmbeddingWithBinding(
+  message: string,
+  overrides?: {
+    endpoints?: AppStat["gptEndpoints"];
+    bindings?: AppStat["gptBindings"];
+    defaultModels?: AppStat["gptDefaultModels"];
+    promptTemplate?: AppStat["gptPromptTemplate"];
+  }
+) {
+  return runWithCapabilityEndpoint(
+    "embedding",
+    async () => genEmbedding(message),
+    overrides
   )
 }
 
-async function generateSearchEngineRule(context: SearchEnginePageContext) {
+async function generateChatWithRefs(
+  message: string,
+  sources,
+  overrides?: {
+    endpoints?: AppStat["gptEndpoints"];
+    bindings?: AppStat["gptBindings"];
+    defaultModels?: AppStat["gptDefaultModels"];
+    promptTemplate?: AppStat["gptPromptTemplate"];
+  }
+) {
+  return runWithCapabilityEndpoint(
+    "chat",
+    async () => chatWithRefs(message, sources),
+    overrides
+  )
+}
+
+async function generateSearchEngineRule(
+  context: SearchEnginePageContext,
+  overrides?: {
+    endpoints?: AppStat["gptEndpoints"];
+    bindings?: AppStat["gptBindings"];
+    defaultModels?: AppStat["gptDefaultModels"];
+    promptTemplate?: AppStat["gptPromptTemplate"];
+  }
+) {
   const pageContext = normalizeSearchEnginePageContext(context);
   if (!pageContext.url) {
     throw new Error(chrome.i18n.getMessage("gptMissingPageContext"));
   }
 
-  const response = await runWithCapabilityEndpoint("chat", async () => {
-    return chat(buildSearchEngineRulePrompt(pageContext));
-  });
+  const response = await runWithCapabilityEndpoint(
+    "chat",
+    async () => {
+      return chat(buildSearchEngineRulePrompt(pageContext));
+    },
+    overrides
+  );
   const jsonText = extractJsonObject(response);
   const rule = JSON.parse(jsonText);
   const validationError = validateCustomSearchEngines(JSON.stringify([rule]));
@@ -1105,7 +1140,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           store.dispatch(setGPTLoading(true));
           store.dispatch(setGPTAnswer(null));
           store.dispatch(setGPTQuery(message.search));
-          const result = await searchStringGPT(message.search);
+          const result = await searchStringGPT(message.search, {
+            endpoints: message.endpoints,
+            bindings: message.bindings,
+            defaultModels: message.defaultModels,
+            promptTemplate: message.promptTemplate,
+          });
           store.dispatch(setGPTAnswer(result));
           sendResponse(result);
         } catch (error) {
@@ -1262,7 +1302,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     case "generate_search_engine_rule":
       (async () => {
         try {
-          const rule = await generateSearchEngineRule(message.context);
+          const rule = await generateSearchEngineRule(message.context, {
+            endpoints: message.endpoints,
+            bindings: message.bindings,
+            defaultModels: message.defaultModels,
+            promptTemplate: message.promptTemplate,
+          });
           sendResponse({ ok: true, rule });
         } catch (error) {
           sendResponse({
@@ -1726,7 +1771,15 @@ function getSearchTerms(search: string): string[] {
   return wordSplit(search);
 }
 
-async function searchStringGPT(search: string): Promise<IGPTAnswer> {
+async function searchStringGPT(
+  search: string,
+  overrides?: {
+    endpoints?: AppStat["gptEndpoints"];
+    bindings?: AppStat["gptBindings"];
+    defaultModels?: AppStat["gptDefaultModels"];
+    promptTemplate?: AppStat["gptPromptTemplate"];
+  }
+): Promise<IGPTAnswer> {
   if (!search) {
     return { answer: "you ask for nothing", sources: null };
   }
@@ -1769,7 +1822,7 @@ async function searchStringGPT(search: string): Promise<IGPTAnswer> {
 
   let queryVector;
   try {
-    queryVector = await generateEmbeddingWithBinding(search);
+    queryVector = await generateEmbeddingWithBinding(search, overrides);
   } catch (error) {
     return { answer: error.message, sources: null };
   }
@@ -1809,9 +1862,11 @@ async function searchStringGPT(search: string): Promise<IGPTAnswer> {
 
   let answerString;
   try {
-    answerString = await generateChatWithRefs(search, [
-      { content: nearestDoc.pageContent, source: nearestDoc.metadata.url },
-    ]);
+    answerString = await generateChatWithRefs(
+      search,
+      [{ content: nearestDoc.pageContent, source: nearestDoc.metadata.url }],
+      overrides
+    );
   } catch (error) {
     return { answer: error.message, sources: null };
   }

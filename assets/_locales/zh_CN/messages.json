@@ -31,6 +31,14 @@
     "message": "请求失败，请检查网络、Base URL 或模型配置。",
     "description": "Ask GPT 请求失败提示"
   },
+  "popupAskOpenSettings": {
+    "message": "打开 GPT 设置",
+    "description": "从 popup Ask GPT 打开 GPT 设置"
+  },
+  "popupAskOpenSettingsHint": {
+    "message": "可点击“打开 GPT 设置”继续检查端点、绑定、默认模型与提示词模板。",
+    "description": "popup Ask GPT 配置错误时的设置提示"
+  },
   "gptBindingUnavailable": {
     "message": "$CAPABILITY$ 绑定链当前没有可用端点。",
     "description": "绑定链无可用端点提示",
@@ -48,6 +56,10 @@
   "gptMissingEndpointId": {
     "message": "缺少端点 ID。",
     "description": "缺少端点 ID 提示"
+  },
+  "gptMissingPromptTemplateConfig": {
+    "message": "缺少 Ask GPT 提示词模板，请先在设置页完成配置。",
+    "description": "缺少 Ask GPT 提示词模板提示"
   },
   "gptBackgroundFetchModelsFailed": {
     "message": "获取模型失败。",
@@ -176,6 +188,10 @@
   "popupRulePanelOpenSettingsHint": {
     "message": "打开设置页后会尽量定位到“自定义搜索引擎规则”区域继续调整。",
     "description": "Hint for opening settings page to edit rules."
+  },
+  "popupRulePanelOpenGPTSettingsHint": {
+    "message": "可点击“打开 GPT 设置”继续检查 Chat 绑定、默认模型与提示词模板。",
+    "description": "搜索引擎规则生成缺少 GPT 配置时的设置提示"
   },
   "popupRulePanelSavedRulesSummary": {
     "message": "已测试规则：共 $1 条 / 命中 $2 条 / 未命中 $3 条",
