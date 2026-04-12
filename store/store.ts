@@ -19,8 +19,15 @@ import {
   
   const persistConfig = {
     key: "fulltextbookmark",
-    version: 1,
-    storage: localStorage
+    version: 2,
+    storage: localStorage,
+    blacklist: [
+      "GPTQuery",
+      "GPTAnswer",
+      "GPTLoading",
+      "firstOpenPopup",
+      "gptAvailableModelsByEndpoint"
+    ]
   }
   
   const persistedReducer = persistReducer(persistConfig, rootReducer)
